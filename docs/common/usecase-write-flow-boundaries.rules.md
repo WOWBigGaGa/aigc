@@ -5,6 +5,7 @@ Read when: You are designing, reviewing, or refactoring multi-entity write orche
 Do not read when: Your task does not change write-flow boundaries or transaction ownership.
 Source of truth: This file defines usecase write-flow boundaries; code examples elsewhere must not override it.
 For precedence, see docs/common/rule-precedence.rules.md.
+For boundary contract naming, see docs/common/boundary-contract.rules.md.
 
 # 多实体写流程与事务根规则
 
@@ -48,16 +49,41 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - 是否需要补偿。
 - 是否需要失败记录或后续重试入口。
 
-## 5. Transaction Root Service
+## 5. Transaction Root
 
-Transaction Root Service 是写流程中负责开启事务边界的 service。
-它负责向下游参与方传递同一个事务管理器。
-下游参与方包括 services 与 repositories。
+Transaction Root 是写流程中负责开启事务边界的入口。
+本仓库目标口径是 Transaction Root 必须归属 usecase 或 usecase 注入的 transaction boundary contract。
 
-只有 Transaction Root Service 可以为该写流程开启新事务。
-除非规则显式允许，下游 service 不得静默开启新的独立事务。
+目标 transaction boundary contract 命名为 `TransactionRunner`。
+不新增并行 `TransactionPort`、`UnitOfWork` 或其他事务 alias。
 
-## 6. QueryService 的角色
+硬性规则：
+
+- usecase 持有事务边界。
+- usecase 在事务回调中把同一个 transaction context 显式传给下游参与方。
+- 下游参与方包括 modules(service)、repository wrapper、QueryService 的事务内只读方法。
+- Transaction boundary contract 是 usecase-owned boundary contract，不是独立分层。
+- Transaction boundary contract 主要供 usecase 层注入、持有与发起。
+- modules(service) 不得直接依赖 transaction boundary contract。
+  当前包括 `TransactionRunner`；历史或讨论名如 `TransactionPort`、`UnitOfWork` 也不得新增或依赖。
+- usecase 不得为了声明事务上下文类型而 import modules service / QueryService 实现文件，
+  也不得从 bounded context 根 `*.types.ts` 继续引入并行事务 alias。
+- modules(service) 不得提供全局事务入口。
+- modules(service) 不得为了跨聚合或跨 bounded context 写入开启事务。
+- 业务 service 上的 `runTransaction`、`withTransaction`、`transaction` 等方法不得作为新写流程入口。
+- 已存在的 service 级事务入口属于待迁移 legacy，不得新增调用点。
+- account 行锁若仍需复用，应由 usecase 先开启事务，再显式调用域内锁方法。
+  不应继续通过 `runInLockedAccountTransaction()` 之类的包装入口获取事务能力。
+
+## 6. Account / Verification 当前迁移口径
+
+- account 写 usecase 是 account / userInfo 写流程的事务持有者。
+- registration 主流程由 usecase 持有事务边界。
+- verification 主流程由 usecase 持有事务边界。
+- `AccountService.runTransaction()`、`VerificationRecordService.runTransaction()` 与其他 service 级事务入口是 legacy。
+- P3 迁移前只允许必要维护，不得新增调用点或复制到新 service。
+
+## 7. QueryService 的角色
 
 QueryService 只负责：
 

@@ -18,6 +18,7 @@ Source of truth: This file defines boundary contract naming and shared vocabular
 
 - Core-owned boundary contract：只表达纯领域能力，必须框架无关。
 - Usecase-owned boundary contract：表达 usecase 编排所需运行时能力。
+  例如事务 runner。
 - Module-owned boundary contract：只在模块需要隔离可替换 infrastructure 实现时使用。
 - Infrastructure 只实现或适配 boundary contract，不拥有业务决策。
 
@@ -27,21 +28,24 @@ Source of truth: This file defines boundary contract naming and shared vocabular
 
 - 文件后缀使用 `*.contract.ts`。
 - 文件名以能力命名，避免技术实现细节。
+- usecase 共享运行时能力可放在 `src/usecases/common/ports/*.contract.ts`。
+  这里的 `ports/` 是既有组织目录，不代表独立 boundary contract layer。
 - 同域数据形态、View、snapshot、enum 等不属于 boundary contract。
   它们按 `docs/common/type.rules.md` 放入 `*.types.ts` 或 `src/types`。
 - 不要为了集中接口而新增全局 `ports` 目录。
+
+## TransactionRunner 目标口径
+
+- `TransactionRunner` 是目标 usecase-owned transaction boundary contract。
+- 该 contract 的目标回调参数只传递纯事务上下文，不让 usecase 直接感知或操作 TypeORM `EntityManager`。
+- modules(service) / QueryService 对外只接收可传递的 transaction context；内部可按需通过 infrastructure helper 解包运行时事务能力。
+- TypeORM 绑定实现应只放在 infrastructure/database transaction 适配中。
+- 不通过新增并行 `TransactionPort`、`UnitOfWork`、`*TransactionManager = EntityManager` 或其他 alias 快修事务边界。
 
 ## 当前 Legacy 兼容口径
 
 当前项目仍存在历史 `*.ports.ts` 文件和 TypeORM `EntityManager` transaction alias。
 它们只允许必要维护，不作为新增代码模板。
-
-已知 legacy 示例：
-
-- `src/core/pagination/pagination.ports.ts`
-- `src/core/search/search.ports.ts`
-- `src/core/sort/sort.ports.ts`
-- `*TransactionManager = EntityManager` 类型 alias
 
 新增或重构 touched code 时：
 

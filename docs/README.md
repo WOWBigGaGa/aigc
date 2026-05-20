@@ -8,6 +8,9 @@
   - `docs/api/`: API / GraphQL adapter rules
   - `docs/worker/`: worker / queue / async-consumer rules
   - `docs/project-convention/`: project-specific conventions
+  - `docs/frontend/`: optional frontend-facing contract notes and cross-repo alignment drafts, not backend source of truth
+  - `docs/deprecated/`: historical design background only, not implementation guidance
+  - `plans/`: active plans, priorities, followups and deliverables
   - Do not read `docs/human/` for implementation guidance
 
   ## Conflict Or Overlap Resolution
@@ -26,21 +29,29 @@
   - GraphQL error/auth/session response contract:
     - `docs/api/graphql-error-contract-current.md`
     - `docs/api/adapters.rules.md`
+    - `docs/api/auth-session-current.md` when auth/session behavior changes
 
   - Layer boundaries:
     - `docs/common/eslint-architecture-rules.md` when you need the lint rule map or validation command
     - `docs/common/boundary-contract.rules.md`
     - `docs/common/core.rules.md`
+    - `docs/common/aggregate.rules.md`
     - `docs/common/modules.rules.md`
     - `docs/common/modules.extra.rules.md`
     - `docs/common/usecase.rules.md`
     - `docs/common/usecase-write-flow-boundaries.rules.md`
     - `docs/api/adapters.rules.md`
     - `docs/common/infrastructure.rules.md`
+    - `docs/common/entity.rules.md`
 
   - QueryService or type placement:
     - `docs/common/queryservice.rules.md`
     - `docs/common/type.rules.md`
+
+  - Aggregate roots, child entities, or Entity purity:
+    - `docs/common/aggregate.rules.md`
+    - `docs/common/entity.rules.md`
+    - `docs/common/usecase-write-flow-boundaries.rules.md`
 
   - Boundary contract or port/contract naming:
     - `docs/common/boundary-contract.rules.md`
@@ -75,17 +86,34 @@
   - Skills:
     - `docs/common/skills.rules.md`
 
+  - In-progress plans or phased design:
+    - `plans/README.md`
+    - read the current plan list inside `plans/README.md`
+
+  - Frontend contract alignment:
+    - `docs/frontend/README.md`
+    - backend truth still comes from `docs/api/*.md` and `docs/common/*.rules.md`
+
+  - Auth / session current contract:
+    - `docs/api/graphql-error-contract-current.md`
+    - `docs/api/auth-session-current.md`
+
+  - Account / userInfo write current contract:
+    - `docs/api/account-write-current.md`
+
   ## One-Line Meanings
 
   - `core.rules`: pure domain only
   - `eslint-architecture-rules.md`: executable lint rule map and architecture validation commands
   - `boundary-contract.rules`: layer-owned contract naming and port/contract distinction
+  - `aggregate.rules`: aggregate root and child-entity write boundaries
   - `modules.rules`: reusable same-domain services only
   - `modules.extra.rules`: optional but common modules(service) practices
   - `usecase.rules`: orchestration and transaction ownership
   - `usecase-write-flow-boundaries.rules`: write-flow split and transaction-root boundaries
   - `adapters.rules`: protocol adaptation only
   - `infrastructure.rules`: external/runtime implementation only
+  - `entity.rules`: ORM Entity purity and adapter-decorator ban
   - `queryservice.rules`: read-side access and normalized output
   - `type.rules`: where shared vs local types belong
   - `queue-identifiers.rules`: `jobId` vs `dedupKey` vs `traceId`
@@ -103,3 +131,6 @@
   - `email-worker-delivery.rules.md`: email delivery runtime boundary
   - `skills.rules.md`: skill authoring and usage
   - `graphql-error-contract-current.md`: global GraphQL error/auth runtime contract for every interface
+  - `auth-session-current.md`: current auth / session / identity contract snapshot
+  - `account-write-current.md`: current account / userInfo write contract snapshot
+  - `plans/README.md`: planning directory usage, reading order and current plan index

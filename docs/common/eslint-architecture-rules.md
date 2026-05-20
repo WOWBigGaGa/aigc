@@ -29,6 +29,8 @@ performs an automatic `--fix` pass.
   adapters -> usecases/core/types, usecases -> modules queries/services/core/types,
   modules services -> infrastructure/core/types, modules queries -> same-domain queries/core/types,
   infrastructure -> infrastructure/core/types, core -> core/types, types -> types.
+  This is still coarser than the target governance model; use the review rules below for uncovered
+  aggregate, entity, QueryService, boundary contract, and transaction details.
 
 - `no-restricted-imports`
   Blocks direct `src/types/**`, `@src/types/**`, and `**/src/types/**` imports.
@@ -60,6 +62,12 @@ These rules are documented review rules in the current project unless and until 
 - Direct usecase transaction-context ORM API calls.
 - Cross-domain usecase imports beyond the current coarse `boundaries/dependencies` model.
 - Module-owned `*.contract.ts` exceptions and detailed contract dependency modeling.
+- Aggregate child-entity direct writes outside the aggregate root entry.
+- ORM Entity purity, including accidental GraphQL / HTTP / Swagger / adapter decorators.
+- Adapter type-only import exceptions for bounded-context root `*.types.ts`.
+- QueryService depending on mixed read/write services.
+- Infrastructure runtime contract naming drift such as BullMQ payload files using layer boundary
+  `*.contract.ts` naming.
 
 Do not treat missing lint coverage as permission to violate the docs.
 

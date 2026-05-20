@@ -61,7 +61,7 @@ Detailed or fast-changing rules belong in `docs/`.
 - Lift cross-domain reads and writes to a usecase; do not push them down into modules or infrastructure.
 - Use QueryService for read-side view normalization and write-after-read output when a stable view exists.
 - Treat outbox as an architectural option, not an existing reusable component.
-- Current transaction aliases based on TypeORM `EntityManager` are legacy; do not add new aliases or new `TransactionPort` / `UnitOfWork` abstractions.
+- `TransactionRunner` is the target usecase-owned transaction boundary contract; current TypeORM `EntityManager` transaction aliases are legacy migration debt. Do not add new aliases or parallel `TransactionPort` / `UnitOfWork` abstractions.
 
 ## Type Placement
 
@@ -81,6 +81,7 @@ Use `docs/README.md` as the source of task routing. Common routes:
 - QueryService or shared type placement: `docs/common/queryservice.rules.md` and `docs/common/type.rules.md`.
 - Worker queues or async consumers: `docs/worker/*.rules.md` and queue/audit project conventions.
 - Input or time normalization: `docs/project-convention/input-*.md` or `docs/project-convention/time-*.md`.
+- Current API behavior: the matching `docs/api/*-current.md`.
 - In-progress design: `plans/README.md`, then the specific current plan.
 
 ## Validation

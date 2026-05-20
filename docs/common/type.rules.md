@@ -5,6 +5,7 @@ Read when: You are adding, reviewing, or refactoring shared types, enums, or Gra
 Do not read when: Your task does not change type ownership or type dependency boundaries.
 Source of truth: This file defines type management rules; code examples elsewhere must not override it.
 For precedence, see docs/common/rule-precedence.rules.md.
+For layer-owned boundary contract naming, see docs/common/boundary-contract.rules.md.
 
 # Type 管理规则（NestJS + TypeScript + GraphQL）
 
@@ -18,13 +19,14 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - 就近优先。
   默认 colocate（和 usecase / resolver / service 放一起）。
 - 稳定上收。
-  只有稳定且跨域复用的类型才进入 `src/types`。
+  稳定且跨域复用的类型才进入 `src/types`。
+  同域多层共享但未跨域的稳定类型放在 bounded context 根类型文件。
 - 分层一致。
   type 的依赖方向必须服从项目分层规则。
 - 先可演进后抽象。
   禁止“提前抽象”造成全局污染。
 
-## 2. 三层类型模型
+## 2. 四层类型模型
 
 ### L1：全局共享类型（`src/types`）
 
@@ -44,7 +46,22 @@ For precedence, see docs/common/rule-precedence.rules.md.
   不绑定框架。
 - 通用响应结构与安全可复用类型。
 
-### L2：领域内类型（usecases / modules / core 内 colocate）
+### L2：bounded context 公共类型（`src/modules/<bounded-context>/<bounded-context>.types.ts`）
+
+适用条件（必须同时满足）：
+
+- 归属于单个 bounded context。
+- 在同域的 adapter / usecase / modules 间共享。
+- 语义相对稳定。
+- 不值得上收到 `src/types`。
+
+典型内容：
+
+- QueryService 对外输出的稳定 View。
+- 同域会话快照、查询契约、只读结果模型。
+- 需要由 resolver、usecase、query service 共同消费的领域内 contract。
+
+### L3：领域内局部类型（usecases / modules / core 内 colocate）
 
 适用条件（命中任意一项即可）：
 
@@ -58,14 +75,16 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - `src/modules/**/**.types.ts`
 - `src/core/**/**.types.ts`
 
-### L3：适配层类型（GraphQL DTO / 输入输出）
+### L4：适配层类型（GraphQL DTO / 输入输出）
 
 规则：
 
-- 仅放在 `src/adapters/graphql/**/dto`。
+- 仅放在 `src/adapters/api/graphql/**/dto`。
   或同层语义目录。
 - 不进入 `src/types`。
 - 不作为领域模型向下游传播。
+- 不与 ORM Entity 合并。
+- GraphQL decorator 只能出现在 adapter 层 DTO / Args / Input / Result 类型中。
 
 典型内容：
 
@@ -86,7 +105,7 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 - 仅 GraphQL 展示语义的 enum 保留在 adapter 层。
   如分页模式。
-- 统一在 `src/adapters/graphql/schema/enum.registry.ts` 注册。
+- 统一在 `src/adapters/api/graphql/schema/enum.registry.ts` 注册。
 
 ### 3.3 禁止项
 
@@ -96,13 +115,32 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 ## 4. import 与依赖方向（类型同样受限）
 
-- adapters 可依赖 usecases / core / `src/types`。
+- adapters 可对 usecases / core / `src/types` 建立正常依赖；
+  对同域 `src/modules/<bounded-context>/<bounded-context>.types.ts` 只允许下述 type-only 复用。
 - usecases 可依赖 modules(service) / core / `src/types`。
 - modules(service) 可依赖 infrastructure / core / `src/types`。
 - core 禁止依赖 adapters / usecases / framework 细节。
 - 任何层禁止反向依赖 adapters。
 - L1 共享类型统一通过 `@app-types/*` 引用。
 - 禁止使用 `@src/types/*` 混用入口。
+- 同域多层共享但未跨域的稳定类型，统一放在 `src/modules/<bounded-context>/<bounded-context>.types.ts`。
+- 同域上游若需复用该类类型，只允许 `import type` 或纯类型 import 此 bounded context 根公共类型文件。
+- 禁止为了复用类型跨层 import 下层实现文件。
+  例如 adapters 不得从 modules 的 `*.service.ts`、`*.query.service.ts`、局部 `queries/*.types.ts` 借类型。
+- 禁止 usecase 为声明事务上下文类型而从 modules service / QueryService 实现文件、
+  bounded context 根 `*.types.ts` 或历史 transaction alias 文件借类型。
+- 目标事务上下文类型应是跨 bounded context 的稳定纯类型，不导入 TypeORM、Nest、core、infrastructure 或 adapter 类型，也不暴露可供 usecase 操作的运行时字段。
+- 禁止把 infrastructure runtime contract 当作上层业务类型来源。
+  例如 BullMQ payload contract、validator registry、第三方 SDK 响应类型不得直接成为 adapters /
+  usecases / modules 的共享输入输出类型真源。
+- 跨域稳定共享的 View / contract type 才进入 `src/types`。
+- 同域稳定共享的 View / contract type 留在所属 bounded context 根类型文件。
+- Boundary contract 不属于本文件的 `*.types.ts` 数据类型收口范围。
+  它们按 `docs/common/boundary-contract.rules.md` 归属到 owning layer，并使用 `*.contract.ts`。
+- 不新增多个并行 `EntityManager` alias。
+  尤其不得新增或恢复 `AccountTransactionManager`、`VerificationRecordTransactionManager`、
+  `*TransactionManager = EntityManager` 这类给上层借用的事务类型。
+- 局部流程类型继续 colocate 在本层，不向上层暴露实现位置。
 
 说明：type 文件不因为“只是类型”而豁免依赖方向。
 
@@ -112,6 +150,8 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 - 是否跨域复用。
   若否，放本地 colocate。
+- 是否只是同域多层共享。
+  若是，放 `src/modules/<bounded-context>/<bounded-context>.types.ts`。
 - 是否稳定。
   若否，放本地 colocate。
 - 是否含 GraphQL / HTTP / ORM 细节。
@@ -120,6 +160,8 @@ For precedence, see docs/common/rule-precedence.rules.md.
   若是，先合并再新增。
 - 是否会引入反向依赖。
   若是，禁止入库。
+- 是否只是为了复用类型而让上层 import 下层实现文件。
+  若是，应改为上收到 `src/types`、提升到 bounded context 根类型文件，或留在本层局部使用。
 
 全部满足才可进入 `src/types`。
 
@@ -137,7 +179,9 @@ For precedence, see docs/common/rule-precedence.rules.md.
 ## 7. 错误码类型约定
 
 - 业务错误码单一真源：`src/core/common/errors/domain-error.ts`。
-- `src/types/errors` 仅放对外响应 payload 结构。
+- 对外错误响应 payload / view 默认 colocate 在 adapter 或 infrastructure。
+  仅当其跨多个 adapter 稳定复用且不依赖 `core` 语义时，才允许进入 `src/types`。
+- `src/types` 禁止依赖 `src/core`，错误响应结构也不例外。
 - 禁止维护第二套并行业务错误码集合。
 
 ## 8. 迁移策略（增量，不大爆炸）
@@ -154,9 +198,10 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 ## 9. Code Review 必查项（简版）
 
-- 新增 type 是否遵循 L1 / L2 / L3 归位。
+- 新增 type 是否遵循 L1 / L2 / L3 / L4 归位。
 - 是否出现重复语义定义。
 - 是否把 adapter DTO 泄漏到 usecase / core。
+- 是否把 adapter decorator 写入 ORM Entity。
 - enum 是否统一注册。
 - import 方向是否满足分层约束。
 
@@ -164,7 +209,7 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 - 优先清理重复排序 enum。
   保留单一来源。
-- 将 resolver 内可复用本地 type 迁移到同域 `*.types.ts`。
+- 将同域共享的稳定 View / contract 收敛到 bounded context 根 `*.types.ts`。
 - 保持 GraphQL 枚举集中注册。
 - 不在 resolver 分散注册。
 - 将 type 选址规则纳入 PR 模板与团队约定。

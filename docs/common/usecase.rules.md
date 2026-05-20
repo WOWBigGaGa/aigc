@@ -3,6 +3,7 @@ Read when: You are adding or changing a usecase, or reviewing write-side orchest
 Do not read when: You are only changing adapter DTOs, infrastructure wiring, or pure domain models.
 Source of truth: This file defines usecase boundaries and overrides informal examples elsewhere.
 For precedence, see docs/common/rule-precedence.rules.md.
+For boundary contract naming, see docs/common/boundary-contract.rules.md.
 
 # Usecase 说明
 
@@ -17,15 +18,23 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - modules(service) 仅提供细粒度写操作。
   由 Usecase 统一编排。
 - Usecase 内允许短暂使用 Entity，但对外不得暴露 ORM Entity。
+- Usecase 可拥有少量 usecase-owned boundary contract。
+  用于事务、调度等用例编排所需的运行时能力边界。
+  这是一种边界模式，不是独立分层，也不意味着建立全局 boundary contract 层或 `ports` 层。
 
 ## 边界与依赖
 
 - adapters → usecases
 - usecases → modules(service) / core
-- usecases → usecases。
-  仅限编排型依赖。
+- usecases 可依赖 usecase-owned boundary contract。
+  该类 contract 只定义 contract / token / 最小共享类型，不承载业务流程实现，也不是独立分层。
+  共享的 usecase 编排运行时能力可放在 `src/usecases/common/ports/*.contract.ts`。
+  `*.contract.ts` 是 boundary contract 文件后缀；不使用 `*.port.ts` 新增并行约定。
+  Port 只作为架构讨论术语出现，不作为新增文件后缀。
+  单个用例私有能力优先 colocate 在该 usecase 附近。
+- usecases → usecases 仅限同域编排型依赖。
 - modules(service) → infrastructure / core
-- 禁止 usecases 直接依赖 infrastructure
+- 禁止 usecases 直接依赖 infrastructure。
 - 禁止 adapters 依赖 modules(service) 或 infrastructure。
 - ORM Entity 仅在 modules(service) 内部使用。
 - 上游不得直接暴露 ORM Entity。
@@ -35,7 +44,7 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - 禁止依赖 ApiModule 或 WorkerModule 的隐式可见性。
 - 禁止依赖适配层转发。
 - WorkerModule 不直接导入 `*UsecasesModule`。
-- 由对应 `*AdapterModule` 间接引入。
+  由对应 `*AdapterModule` 间接引入。
 - 禁止在 WorkerModule 顶层编排 usecase 依赖。
   避免装配层职责膨胀。
 
@@ -51,6 +60,13 @@ For precedence, see docs/common/rule-precedence.rules.md.
 - 禁止由 B 再调用 C。
 - 不允许为获取某个 Service 而绕道依赖 Usecase。
 - 禁止形成循环依赖。
+- 多个 Usecase 共享的参数 / 结果 / View type，不得挂在某个 Usecase 文件本身导出。
+- 共享类型应抽到同目录 `*.types.ts`。
+  由相关 Usecase 共同依赖。
+- 若该类型还会被同域 modules(service) / adapters 共同使用，
+  应提升到 `src/modules/<bounded-context>/<bounded-context>.types.ts`。
+- 禁止通过 import 另一个 Usecase 文件来复用其导出的类型。
+  类型复用同样受“禁止链式依赖、禁止循环依赖”约束。
 
 ## 职责与输出
 
@@ -66,9 +82,9 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 ## 读写协作方式
 
-- 纯读放在 modules(service) 的读服务，便于复用。
+- 纯读放在 modules(service) 的 QueryService，便于复用。
 - modules(service) 可提供基础写方法，但不得包含完整写语义或流程编排。
-- 跨域读：只能由上层 Usecase 发起，通过被读域的 QueryService 获取。
+- 跨域读只能由上层 Usecase 发起，通过被读域的 QueryService 获取。
 - 跨域写通过事件或显式编排。
 - `Outbox` 可作为一致性设计选项进行评估。
 - 写后读优先走 QueryService，输出统一的 View / DTO。
@@ -77,17 +93,26 @@ For precedence, see docs/common/rule-precedence.rules.md.
 
 ## 错误与权限
 
-- 业务错误统一使用 domain-error 中的 error_code
+- 业务错误统一使用 domain-error 中的 error_code。
 - 写用例的流程级授权由 Usecase 负责。
 - QueryService 不参与写侧决策。
 - 细粒度授权可抽为同域 PermissionPolicy / AccessPolicy。
   可实现为纯函数或 service。
 - 供 Usecase 与 QueryService 复用。
-- Usecase 与 QueryService 二者互不调用。
+- Usecase 可以调用 QueryService 获取只读结果、View 映射或读侧校验结果。
+- QueryService 不得反向调用 Usecase。
 
 ## 事务与外部系统
 
 - 事务由 Usecase 定义与开启，modules(service) 不跨域开启事务。
+- 事务 runner 属于 usecase-owned boundary contract，而不是 core-owned boundary contract。
+- 该 contract 可由 infrastructure 实现并通过 DI 注入 usecase。
+- 该 contract 不得被 adapters 依赖，也不得反向依赖 adapters、modules(service) 或 infrastructure 实现文件。
+- `TransactionRunner` 是目标 usecase-owned transaction boundary contract 命名。
+  它不是 core-owned boundary contract，也不是独立 boundary contract layer。
+  不新增并行 `TransactionPort` / `UnitOfWork` alias。
+- 当前基于 TypeORM `EntityManager` 的事务 alias 与 service 级事务入口属于待迁移 legacy。
+  不得新增调用点或复制为新模板。
 - 一旦跨聚合或调用外部系统，Usecase 需先明确一致性策略与补偿策略。
 - `Outbox` 在本仓库当前仅作为架构设计讨论。
 - 尚未形成正式落地实现。

@@ -1,15 +1,16 @@
 <!-- docs/common/core.rules.md -->
 
-Purpose: Define pure domain, value object, and port guardrails for core.
-Read when: You are implementing, reviewing, or refactoring domain models, value objects, or core ports.
+Purpose: Define pure domain, value object, and core-owned boundary contract guardrails for core.
+Read when: You are implementing, reviewing, or refactoring domain models, value objects, or core-owned boundary contracts.
 Do not read when: Your task does not change core layer boundaries.
 Source of truth: This file defines core rules; code examples elsewhere must not override it.
+For boundary contract naming, see docs/common/boundary-contract.rules.md.
 
 # Core 说明
 
 ## 定位与职责
 
-- Core 只承载领域模型、值对象、领域规则与端口接口。
+- Core 只承载领域模型、值对象、领域规则与 core-owned boundary contract。
 - Core 是系统中最稳定、最少变动的层，负责表达业务不变性。
 - Core 不关心运行时环境与框架，保持纯粹与可移植性。
 
@@ -19,7 +20,8 @@ Source of truth: This file defines core rules; code examples elsewhere must not 
   允许不可变或受控变更。
 - 领域规则与纯函数。
   要求确定性、无副作用。
-- 端口接口。
+- Core-owned boundary contract。
+  仅用于纯领域能力所需的外部依赖边界。
   由 infrastructure 提供实现。
 - 领域错误码、错误映射表与业务枚举。
 
@@ -40,15 +42,45 @@ Source of truth: This file defines core rules; code examples elsewhere must not 
 - 允许 usecases、modules(service)、infrastructure 依赖 core。
 - 禁止 core 依赖任何上游层。
   包括 adapters、usecases、modules、infrastructure。
+- core 只能依赖 core-local 代码。
+- 当当前 docs 和 lint 允许时，core 可依赖 `@app-types/*` 中稳定、框架无关的共享类型。
 
 ## 设计原则
 
 - 领域规则优先，技术细节后置。
 - 抽象稳定，具体实现可替换。
+- Boundary contract 是某一层拥有的依赖边界模式，不是独立分层。
+- 本仓库新增 boundary contract 文件默认使用 `*.contract.ts`。
+  Port 只作为架构术语出现，不作为新增文件后缀。
+- Core-owned boundary contract 必须表达纯领域能力，不承载 usecase 编排、事务、队列调度等运行时能力。
 - 纯函数优先，最小副作用。
+- 只有稳定且有生产调用点的规则才沉淀为 core policy。
+- 不为了一次性流程判断或缺少重复证据的局部逻辑新增 core policy。
+- 若某个纯 policy 已存在，应确保它有生产调用点和聚焦单测；否则应重新评估是否保留。
+- 某个 bounded context 内部仍在演进的纯规则，可以先放在对应 module 内的
+  `*.policy.ts` / `*.state.ts`。
+  只要它保持纯函数、无 I/O、无 DI、无 ORM，就不违反 core 规则。
+  当该规则跨场景稳定复用后，再评估是否上收到 `src/core/<domain>`。
+
+## 当前 Account Policy 口径
+
+- `profile-completion.policy.ts` 承载首次资料补全相关的纯判断。
+- `role-access.policy.ts` 承载角色展开与角色判断。
+- `user-info-visibility.policy.ts` 承载 userInfo 可见性的纯判断。
+- Account 状态迁移、访问摘要投影、注册中间态不变量只有在出现稳定重复或明确聚合不变量证据时，才进入 `core/account`。
+
+## Legacy 兼容口径
+
+- 当前 `src/core/**` 中仍可能存在历史共享 contract / interface。
+  它们用于兼容现有装配和调用路径，不作为新增代码的 precedent。
+- Legacy contract 只能做必要维护，不得继续扩大职责、增加新的反向依赖或作为新 contract 的放置模板。
+- 新增 core-owned boundary contract 使用 `*.contract.ts`，不得使用 `*.port.ts`
+  / `*.ports.ts` 命名。
+- 新增运行时、事务、队列、外部系统、provider、gateway 等能力边界时，先判断实际 owning layer。
+  只有纯领域能力才允许新增 core-owned boundary contract。
 
 ## 命名与结构
 
 - 领域模型命名清晰表达业务语义。
-- 端口接口以能力命名，避免技术细节。
+- Core-owned boundary contract 以领域能力命名，避免技术细节。
 - 按领域边界组织目录，避免横切堆叠。

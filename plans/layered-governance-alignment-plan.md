@@ -154,6 +154,42 @@ P0 决策闸口：
 
 ### P1：文档体系完全对齐
 
+当前产出：
+
+- `AGENTS.md` 已补 current API 路由，并将事务目标口径收敛到 `TransactionRunner`，当前
+  EntityManager alias 仅作为 legacy 迁移债务。
+- `docs/README.md` 已补 aggregate/entity/plans/current API/frontend/deprecated 路由。
+- `plans/README.md` 已补生命周期、token 友好读取顺序与当前主计划入口。
+- 已新增 `docs/common/aggregate.rules.md` 与 `docs/common/entity.rules.md`。
+- 已新增旧项目通用 current API 文档：
+  - `docs/api/auth-session-current.md`
+  - `docs/api/account-write-current.md`
+- 已新增非实现指导目录说明：
+  - `docs/frontend/README.md`
+  - `docs/deprecated/README.md`
+- 已更新核心分层规则：
+  - `docs/common/core.rules.md`
+  - `docs/common/modules.rules.md`
+  - `docs/common/modules.extra.rules.md`
+  - `docs/common/usecase.rules.md`
+  - `docs/common/usecase-write-flow-boundaries.rules.md`
+  - `docs/common/queryservice.rules.md`
+  - `docs/common/type.rules.md`
+  - `docs/common/boundary-contract.rules.md`
+  - `docs/common/infrastructure.rules.md`
+  - `docs/common/rule-precedence.rules.md`
+  - `docs/common/eslint-architecture-rules.md`
+  - `docs/api/adapters.rules.md`
+  - `docs/worker/qm-worker-integration.rules.md`
+
+验证：
+
+- `rg -n "学生|教务|班级|学校|课程|教育|培训班|upstream|academic|Student|StaffProfile|StudentProfile|CourseSchedule|slotGroup|Department|Major" AGENTS.md docs -g '*.md'`
+  无匹配。
+- `npm run typecheck` 通过。
+- `npx eslint "{src,apps,libs,test}/**/*.ts" --cache --cache-location .eslintcache` 通过。
+- `git diff --check` 通过。
+
 目标：先让旧项目 docs/agent 入口与新项目治理体系一致，后续代码修改都按新规则执行。
 
 范围：
