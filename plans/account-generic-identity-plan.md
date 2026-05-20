@@ -380,6 +380,26 @@
 
 ### P4：注册、验证、邀请与会话改造
 
+当前产出：
+
+- `RegisterWithEmailUsecase` 不再消费 `INVITE_COACH` invite token；注册请求携带 `inviteToken` 时仅记录告警并继续通用注册流程。
+- email 注册默认写入 `REGISTRANT`，`identityHint / accessGroup / metaDigest` 不再使用培训班身份。
+- `ConsumeVerificationFlowUsecase` 只注册 `ResetPasswordHandler`，已删除
+  `InviteCoachHandler / InviteManagerHandler` 以及对应 accept-invite usecase。
+- `VerificationUsecasesModule` 和 `VerificationRecordModule` 不再导入 coach/manager service module。
+- `CreateVerificationRecordUsecase` 和 GraphQL `CreatableVerificationRecordType` 创建入口只允许
+  `PASSWORD_RESET`；旧 `INVITE_COACH / INVITE_MANAGER` 创建请求在 GraphQL 输入层被拒绝。
+- `ConsumeVerificationRecordUsecase` 不再保留 coach/manager invite 的目标账号特殊分支。
+- `VerificationReadService` 公开 payload 白名单已去掉 coach/manager/training invite 专用字段。
+- `verification-record-invite.e2e-spec.ts` 已替换为 invite 停用契约测试：创建入口只暴露
+  `PASSWORD_RESET`、旧 invite 类型不可创建、`PASSWORD_RESET` 仍可签发。
+- 已通过：
+  - `npm run typecheck`
+  - `npx eslint "{src,apps,libs,test}/**/*.ts" --cache --cache-location .eslintcache`
+  - `npm run test:e2e:file -- 01-auth/auth.e2e-spec.ts`
+  - `npm run test:e2e:file -- 02-register/register.e2e-spec.ts`
+  - `npm run test:e2e:file -- 05-verification-record/verification-record-invite.e2e-spec.ts`
+
 目标：把仍有 runtime 调用价值的账号流程改成
 `ADMIN / STAFF / GUEST / REGISTRANT` 通用语义。
 

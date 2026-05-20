@@ -1,20 +1,12 @@
 // src/usecases/registration/register-with-email.usecase.ts
 
 import { AccountStatus, IdentityTypeEnum, UserAccountView } from '@app-types/models/account.types';
-import { VerificationRecordType } from '@app-types/models/verification-record.types';
-import {
-  ACCOUNT_ERROR,
-  AUTH_ERROR,
-  DomainError,
-  VERIFICATION_RECORD_ERROR,
-} from '@core/common/errors';
+import { ACCOUNT_ERROR, AUTH_ERROR, DomainError } from '@core/common/errors';
 import { isPrivateIp, isServerIp } from '@core/common/network/network-access.helper';
 import { PasswordPolicyService } from '@core/common/password/password-policy.service';
-import { TokenFingerprintHelper } from '@modules/common/security/token-fingerprint.helper';
 import { Injectable } from '@nestjs/common';
 import { AccountService } from '@src/modules/account/base/services/account.service';
 import { AccountQueryService } from '@src/modules/account/queries/account.query.service';
-import { VerificationRecordService } from '@src/modules/verification-record/verification-record.service';
 import {
   RegisterWithEmailParams,
   RegisterWithEmailResult,
@@ -35,7 +27,6 @@ export class RegisterWithEmailUsecase {
     private readonly accountService: AccountService,
     private readonly accountQueryService: AccountQueryService,
     private readonly passwordPolicyService: PasswordPolicyService,
-    private readonly verificationRecordService: VerificationRecordService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(RegisterWithEmailUsecase.name);
@@ -86,24 +77,11 @@ export class RegisterWithEmailUsecase {
       // 创建账户
       const account = await this.createAccount(preparedData);
 
-      // 如果提供了邀请令牌，尝试消费邀请码
       if (inviteToken) {
-        try {
-          await this.consumeInviteToken({
-            inviteToken,
-            consumedByAccountId: account.id,
-          });
-          const tokenFp = TokenFingerprintHelper.generateTokenFingerprint({ token: inviteToken });
-          this.logger.info(
-            { accountId: account.id, tokenFp: tokenFp.toString('hex') },
-            '注册成功并尝试消费邀请码',
-          );
-        } catch (error) {
-          // 邀请码消费失败不影响注册成功，只记录日志
-          this.logger.warn(
-            `用户 ${account.id} 注册成功，但邀请码消费失败: ${error instanceof Error ? error.message : '未知错误'}`,
-          );
-        }
+        this.logger.warn(
+          { accountId: account.id },
+          '注册请求携带 inviteToken，但通用邀请流程尚未启用，已忽略',
+        );
       }
 
       if (account.status !== AccountStatus.ACTIVE) {
@@ -127,33 +105,6 @@ export class RegisterWithEmailUsecase {
       }
 
       throw new DomainError(ACCOUNT_ERROR.REGISTRATION_FAILED, '注册失败');
-    }
-  }
-
-  /**
-   * 消费邀请 token
-   * @param params 消费参数
-   */
-  private async consumeInviteToken(params: {
-    inviteToken: string;
-    consumedByAccountId: number;
-  }): Promise<void> {
-    const tokenFp = this.verificationRecordService.generateTokenFingerprint(params.inviteToken);
-    const now = new Date();
-    const result = await this.verificationRecordService.consumeRecord({
-      where: { tokenFp },
-      context: {
-        expectedType: VerificationRecordType.INVITE_COACH,
-        consumedByAccountId: params.consumedByAccountId,
-        now,
-        targetConstraint: {
-          mode: 'MATCH_OR_NULL',
-          accountId: params.consumedByAccountId,
-        },
-      },
-    });
-    if (result.affected === 0) {
-      throw new DomainError(VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID, '邀请码不可用');
     }
   }
 

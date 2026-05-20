@@ -380,18 +380,6 @@ export class ConsumeVerificationRecordUsecase {
     if (expectedType === VerificationRecordType.PASSWORD_RESET) {
       return { mode: 'IGNORE' };
     }
-    if (expectedType === VerificationRecordType.INVITE_COACH) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Coach 邀请需要指定消费者账户 ID',
-      );
-    }
-    if (expectedType === VerificationRecordType.INVITE_MANAGER) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Manager 邀请需要指定消费者账户 ID',
-      );
-    }
     return { mode: 'NULL_ONLY' };
   }
 }

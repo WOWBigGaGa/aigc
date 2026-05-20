@@ -50,8 +50,6 @@ export interface CreateVerificationRecordUsecaseResult {
 export class CreateVerificationRecordUsecase {
   private readonly supportedTypes = new Set<VerificationRecordType>([
     VerificationRecordType.PASSWORD_RESET,
-    VerificationRecordType.INVITE_COACH,
-    VerificationRecordType.INVITE_MANAGER,
   ]);
 
   constructor(

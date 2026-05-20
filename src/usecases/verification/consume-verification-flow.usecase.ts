@@ -2,7 +2,6 @@
 
 import {
   VerificationRecordType,
-  SubjectType,
   VerificationRecordStatus,
 } from '@app-types/models/verification-record.types';
 import {
@@ -17,10 +16,6 @@ import {
   VerificationRecordService,
   VerificationRecordValidationSnapshot,
 } from '@src/modules/verification-record/verification-record.service';
-import { InviteCoachHandler } from './coach/invite-coach.handler';
-import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
-import { InviteManagerHandler } from './manager/invite-manager.handler';
-import { InviteManagerHandlerResult } from './manager/invite-manager-result.types';
 import { ResetPasswordHandler } from './password/reset-password.handler';
 import {
   ConsumeVerificationFlowParams,
@@ -51,12 +46,8 @@ export class ConsumeVerificationFlowUsecase {
     private readonly verificationRecordService: VerificationRecordService,
     private readonly consumableQueryService: ConsumableQueryService,
     private readonly resetPasswordHandler: ResetPasswordHandler,
-    private readonly inviteCoachHandler: InviteCoachHandler,
-    private readonly inviteManagerHandler: InviteManagerHandler,
   ) {
     this.registerHandler(this.resetPasswordHandler);
-    this.registerHandler(this.inviteCoachHandler);
-    this.registerHandler(this.inviteManagerHandler);
   }
 
   /**
@@ -128,35 +119,12 @@ export class ConsumeVerificationFlowUsecase {
       // 第五步：执行业务逻辑
       const businessResult = await handler.handle(context);
 
-      // 第六步：从业务结果中提取主体信息
-      let subjectType: SubjectType | undefined;
-      let subjectId: number | undefined;
-
-      // 根据验证记录类型和业务结果提取主体信息
-      if (recordView.type === VerificationRecordType.INVITE_COACH && businessResult) {
-        // 对于 INVITE_COACH 类型，从 InviteCoachHandlerResult 中提取 coachId
-        const coachResult = businessResult as InviteCoachHandlerResult;
-        if (coachResult.coachId) {
-          subjectType = SubjectType.COACH;
-          subjectId = coachResult.coachId;
-        }
-      } else if (recordView.type === VerificationRecordType.INVITE_MANAGER && businessResult) {
-        // 对于 INVITE_MANAGER 类型，从 InviteManagerHandlerResult 中提取 managerId
-        const managerResult = businessResult as InviteManagerHandlerResult;
-        if (managerResult.managerId) {
-          subjectType = SubjectType.MANAGER;
-          subjectId = managerResult.managerId;
-        }
-      }
-
-      // 第七步：消费验证记录（在同一事务中）
+      // 第六步：消费验证记录（在同一事务中）
       await this.consumeVerificationRecord({
         token,
         consumedByAccountId,
         expectedType: recordView.type,
         manager: activeManager,
-        subjectType,
-        subjectId,
       });
 
       return businessResult;
@@ -201,11 +169,9 @@ export class ConsumeVerificationFlowUsecase {
     token: string;
     consumedByAccountId?: number;
     expectedType?: VerificationRecordType;
-    subjectType?: SubjectType;
-    subjectId?: number;
     manager?: Parameters<VerificationRecordService['consumeRecord']>[0]['manager'];
   }): Promise<void> {
-    const { token, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
+    const { token, consumedByAccountId, expectedType, manager } = params;
     const now = new Date();
     const targetConstraint = this.resolveTargetConstraint({ consumedByAccountId, expectedType });
     const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
@@ -215,8 +181,6 @@ export class ConsumeVerificationFlowUsecase {
       context: {
         expectedType,
         consumedByAccountId,
-        subjectType,
-        subjectId,
         now,
         targetConstraint,
       },
@@ -293,18 +257,6 @@ export class ConsumeVerificationFlowUsecase {
     }
     if (expectedType === VerificationRecordType.PASSWORD_RESET) {
       return { mode: 'IGNORE' };
-    }
-    if (expectedType === VerificationRecordType.INVITE_COACH) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Coach 邀请需要指定消费者账户 ID',
-      );
-    }
-    if (expectedType === VerificationRecordType.INVITE_MANAGER) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Manager 邀请需要指定消费者账户 ID',
-      );
     }
     return { mode: 'NULL_ONLY' };
   }
