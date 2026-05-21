@@ -65,7 +65,7 @@ Source of truth: This file defines QueryService rules; code examples elsewhere m
   前提是仍保持单向读取语义，不形成环。
 - QueryService 不应依赖混合读写的普通 Service。
   即使当前调用的方法恰好是只读方法，也不作为例外。
-- 若某查询能力当前只存在于普通 Service，应优先下沉为只读 repository / 查询实现，
+- 若某查询能力当前只存在于普通 Service，应优先下沉为只读 repository / 查询实现。
   或拆为独立 QueryService，而不是继续扩大 QueryService → Service 依赖。
 - QueryService 产出的稳定共享 View / contract type，若只在同一 bounded context 内跨层复用，
   放在 `src/modules/<bounded-context>/<bounded-context>.types.ts`。

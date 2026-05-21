@@ -14,7 +14,7 @@ Global error contract: Every GraphQL interface must also follow docs/api/graphql
   只做输入解析、权限接入与输出封装。
 - Adapter 负责协议转换。
   将外部协议输入转换为用例参数。
-- Adapter 将用例结果转换为 API 输出。
+- 将用例结果转换为 API 输出。
 
 ## 允许内容
 
@@ -23,7 +23,7 @@ Global error contract: Every GraphQL interface must also follow docs/api/graphql
   包括 DomainError 的错误码透传。
 - 权限守卫与身份注入。
   包括 Guard、Decorator。
-- Schema 初始化与枚举、标量注册，统一通过 schema 初始化文件。
+- Schema 初始化与枚举、标量注册，统一通过 schema.init.ts。
 
 ## 禁止内容
 
@@ -39,7 +39,7 @@ Global error contract: Every GraphQL interface must also follow docs/api/graphql
 - 允许 adapters → usecases。
 - 允许 adapters 仅以 `import type` 复用同域
   `src/modules/<bounded-context>/<bounded-context>.types.ts` 的稳定 View / contract。
-- 该例外只用于类型注解，不得引入运行时值、service、QueryService、Entity 或局部
+  该例外只用于类型注解，不得引入运行时值、service、QueryService、Entity 或局部
   `queries/*.types.ts`。
 - 禁止 adapters → modules(service) / infrastructure 的运行时或值依赖。
 - 禁止任意层 → adapters。
@@ -72,11 +72,11 @@ Global error contract: Every GraphQL interface must also follow docs/api/graphql
 
 ## GraphQL Schema 组织
 
-- Schema 初始化只在 schema 初始化文件中做一次。
+- Schema 初始化只在 schema.init.ts 做一次。
 - 重复调用只警告，不重复注册。
 - 枚举与标量集中注册。
 - 避免分散在 DTO 或 Resolver 文件中。
-- GraphQL enums 仅定义，注册统一走 enum registry。
+- GraphQL enums 仅定义，注册统一走 enum.registry.ts。
 
 ## 全局 GraphQL 错误契约
 

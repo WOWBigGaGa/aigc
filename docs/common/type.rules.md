@@ -141,10 +141,12 @@ For layer-owned boundary contract naming, see docs/common/boundary-contract.rule
 - 跨域稳定共享的 View / contract type 才进入 `src/types`。
 - 同域稳定共享的 View / contract type 留在所属 bounded context 根类型文件。
 - Boundary contract 不属于本文件的 `*.types.ts` 数据类型收口范围。
-  它们按 `docs/common/boundary-contract.rules.md` 归属到 owning layer，并使用 `*.contract.ts`。
+  它们按 `docs/common/boundary-contract.rules.md` 归属到 owning layer，并使用
+  `*.contract.ts`。
 - 不新增多个并行 `EntityManager` alias。
-  尤其不得新增或恢复 `AccountTransactionManager`、`VerificationRecordTransactionManager`、
-  `*TransactionManager = EntityManager` 这类给上层借用的事务类型。
+  尤其不得新增或恢复 `AccountTransactionManager`、
+  `VerificationRecordTransactionManager`、`*TransactionManager = EntityManager` 这类
+  给上层借用的事务类型。
 - ESLint 会阻止 usecases / modules 中新增 `*TransactionManager` alias。
   不得恢复旧 `TransactionManager` 兼容类型。
 - 局部流程类型继续 colocate 在本层，不向上层暴露实现位置。
