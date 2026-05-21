@@ -1,4 +1,5 @@
 // src/infrastructure/bullmq/producer.gateway.ts
+import type { RecordSource } from '@app-types/common/record-source.types';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
@@ -13,13 +14,7 @@ import {
 } from './contracts/job-contract.registry';
 import { BULLMQ_QUEUE_REGISTRY } from './queue-registry';
 
-export type BullMqEnqueueSource =
-  | 'user_action'
-  | 'admin_action'
-  | 'system'
-  | 'cron'
-  | 'domain_event'
-  | 'webhook';
+export type BullMqEnqueueSource = RecordSource;
 
 export interface BullMqEnqueueMeta {
   // 发起账号 ID、发起时承担的角色

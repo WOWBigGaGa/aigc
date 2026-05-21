@@ -1,15 +1,10 @@
 // src/modules/async-task-record/async-task-record.types.ts
 
-export const ASYNC_TASK_RECORD_SOURCES = [
-  'user_action',
-  'admin_action',
-  'system',
-  'cron',
-  'domain_event',
-  'webhook',
-] as const;
+import { RECORD_SOURCES, type RecordSource } from '@app-types/common/record-source.types';
 
-export type AsyncTaskRecordSource = (typeof ASYNC_TASK_RECORD_SOURCES)[number];
+export const ASYNC_TASK_RECORD_SOURCES = RECORD_SOURCES;
+
+export type AsyncTaskRecordSource = RecordSource;
 
 export const ASYNC_TASK_RECORD_STATUSES = [
   'queued',

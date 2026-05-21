@@ -1,13 +1,8 @@
-export const AI_PROVIDER_CALL_RECORD_SOURCES = [
-  'user_action',
-  'admin_action',
-  'system',
-  'cron',
-  'domain_event',
-  'webhook',
-] as const;
+import { RECORD_SOURCES, type RecordSource } from '@app-types/common/record-source.types';
 
-export type AiProviderCallRecordSource = (typeof AI_PROVIDER_CALL_RECORD_SOURCES)[number];
+export const AI_PROVIDER_CALL_RECORD_SOURCES = RECORD_SOURCES;
+
+export type AiProviderCallRecordSource = RecordSource;
 
 export const AI_PROVIDER_CALL_RECORD_PROVIDER_STATUSES = ['succeeded', 'failed'] as const;
 
