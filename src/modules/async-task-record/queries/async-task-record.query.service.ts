@@ -2,8 +2,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, Repository } from 'typeorm';
-import { AsyncTaskRecordEntity, type AsyncTaskRecordStatus } from '../async-task-record.entity';
-import {
+import { AsyncTaskRecordEntity } from '../async-task-record.entity';
+import type {
+  AsyncTaskRecordStatus,
   AsyncTaskRecordView,
   FindAsyncTaskRecordByQueueJobInput,
   ListAsyncTaskRecordsByBizTargetInput,

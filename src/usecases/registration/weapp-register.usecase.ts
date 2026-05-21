@@ -281,11 +281,14 @@ export class WeappRegisterUsecase {
       });
       const savedAccount = await this.accountService.saveAccount({ account, transactionContext });
 
-      savedAccount.loginPassword = AccountService.hashPasswordWithTimestamp(
-        accountData.loginPassword,
-        savedAccount.createdAt,
-      );
-      await this.accountService.saveAccount({ account: savedAccount, transactionContext });
+      await this.accountService.updateAccountPasswordHash({
+        accountId: savedAccount.id,
+        passwordHash: AccountService.hashPasswordWithTimestamp(
+          accountData.loginPassword,
+          savedAccount.createdAt,
+        ),
+        transactionContext,
+      });
 
       const userInfo = this.accountService.createUserInfoEntity({
         transactionContext,

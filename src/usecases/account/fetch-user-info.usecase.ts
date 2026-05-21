@@ -23,10 +23,7 @@ export interface CompleteUserData {
     wasSuspended: boolean;
     realAccessGroup?: IdentityTypeEnum[];
   };
-  rawUserInfo: UserInfoRecord;
 }
-
-type UserInfoRecord = Awaited<ReturnType<AccountService['findUserInfoByAccountId']>>;
 
 @Injectable()
 export class FetchUserInfoUsecase {
@@ -121,7 +118,6 @@ export class FetchUserInfoUsecase {
     return {
       userInfoView,
       securityResult,
-      rawUserInfo: userInfo,
     };
   }
 }

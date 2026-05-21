@@ -58,6 +58,22 @@ export interface UserInfoCreateData {
   updatedAt?: Date;
 }
 
+export interface UserInfoUpdateData {
+  nickname?: string;
+  gender?: Gender;
+  birthDate?: string | null;
+  avatarUrl?: string | null;
+  email?: string | null;
+  signature?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  tags?: string[] | null;
+  geographic?: GeographicInfo | null;
+  notifyCount?: number;
+  unreadCount?: number;
+  userState?: UserState;
+}
+
 @Injectable()
 export class AccountService {
   constructor(
@@ -175,6 +191,18 @@ export class AccountService {
     await repository.update(id, updateData);
   }
 
+  async updateAccountPasswordHash(params: {
+    accountId: number;
+    passwordHash: string;
+    transactionContext?: PersistenceTransactionContext;
+  }): Promise<void> {
+    const repository = this.getAccountRepository(params.transactionContext);
+    await repository.update(params.accountId, {
+      loginPassword: params.passwordHash,
+      updatedAt: new Date(),
+    });
+  }
+
   /**
    * 显式锁定账户以避免并发覆盖
    * @param accountId 账户 ID
@@ -217,6 +245,24 @@ export class AccountService {
     const { userInfo, transactionContext } = params;
     const repository = this.getUserInfoRepository(transactionContext);
     return await repository.save(userInfo);
+  }
+
+  async updateUserInfoFields(params: {
+    accountId: number;
+    patch: UserInfoUpdateData;
+    transactionContext?: PersistenceTransactionContext;
+  }): Promise<void> {
+    if (Object.keys(params.patch).length === 0) {
+      return;
+    }
+    const repository = this.getUserInfoRepository(params.transactionContext);
+    await repository.update(
+      { accountId: params.accountId },
+      {
+        ...params.patch,
+        updatedAt: new Date(),
+      },
+    );
   }
 
   /**

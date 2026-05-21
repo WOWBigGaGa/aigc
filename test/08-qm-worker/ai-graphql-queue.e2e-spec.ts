@@ -7,10 +7,8 @@ import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { TokenHelper } from '@src/modules/auth/token.helper';
-import {
-  AsyncTaskRecordEntity,
-  type AsyncTaskRecordStatus,
-} from '@src/modules/async-task-record/async-task-record.entity';
+import { AsyncTaskRecordEntity } from '@src/modules/async-task-record/async-task-record.entity';
+import type { AsyncTaskRecordStatus } from '@src/modules/async-task-record/async-task-record.types';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
 import type {
   EmbedAiContentInput,

@@ -4,8 +4,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
 import { FindOptionsWhere, In, IsNull, QueryFailedError, Repository } from 'typeorm';
-import { AsyncTaskRecordEntity, AsyncTaskRecordStatus } from './async-task-record.entity';
-import {
+import { AsyncTaskRecordEntity } from './async-task-record.entity';
+import type {
+  AsyncTaskRecordStatus,
   AsyncTaskRecordView,
   CreateAsyncTaskRecordInput,
   FindAsyncTaskRecordByQueueJobInput,

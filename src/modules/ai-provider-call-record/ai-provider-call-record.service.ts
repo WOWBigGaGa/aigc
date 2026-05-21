@@ -4,11 +4,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
 import { QueryFailedError, Repository, type EntityManager } from 'typeorm';
-import {
-  AiProviderCallRecordEntity,
-  type AiProviderCallRecordProviderStatus,
-  type AiProviderCallRecordSource,
-} from './ai-provider-call-record.entity';
+import { AiProviderCallRecordEntity } from './ai-provider-call-record.entity';
+import type {
+  AiProviderCallRecordProviderStatus,
+  AiProviderCallRecordSource,
+} from './ai-provider-call-record.types';
 
 export interface CreateAiProviderCallRecordInput {
   readonly asyncTaskRecordId?: number | null;

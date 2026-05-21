@@ -95,8 +95,11 @@ export class CreateAccountUsecase {
       String(accountData.loginPassword),
       savedAccount.createdAt,
     );
-    savedAccount.loginPassword = hashedPassword;
-    await this.accountService.saveAccount({ account: savedAccount, transactionContext });
+    await this.accountService.updateAccountPasswordHash({
+      accountId: savedAccount.id,
+      passwordHash: hashedPassword,
+      transactionContext,
+    });
 
     // 3) 写入 UserInfo
     const userInfo = this.accountService.createUserInfoEntity({

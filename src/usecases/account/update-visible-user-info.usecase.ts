@@ -7,7 +7,10 @@ import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-i
 import { hasRole } from '@core/account/policy/role-access.policy';
 import { ACCOUNT_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountService } from '@src/modules/account/base/services/account.service';
+import {
+  AccountService,
+  type UserInfoUpdateData,
+} from '@src/modules/account/base/services/account.service';
 import {
   TRANSACTION_RUNNER,
   type TransactionRunner,
@@ -40,24 +43,9 @@ export type UserInfoPatch = {
   unreadCount?: number;
 };
 
-type UserInfoUpdatePatch = {
-  nickname?: string;
-  gender?: Gender;
-  birthDate?: string | null;
-  avatarUrl?: string | null;
-  email?: string | null;
-  signature?: string | null;
-  address?: string | null;
-  phone?: string | null;
-  tags?: string[] | null;
-  geographic?: GeographicInfo | null;
-  userState?: UserState;
-  notifyCount?: number;
-  unreadCount?: number;
-};
+type UserInfoUpdatePatch = UserInfoUpdateData;
 
 type UserInfoUpdateField = keyof UserInfoUpdatePatch;
-type UserInfoRecord = NonNullable<Awaited<ReturnType<AccountService['findUserInfoByAccountId']>>>;
 
 export interface UpdateVisibleUserInfoParams {
   session: UsecaseSession;
@@ -103,13 +91,10 @@ export class UpdateVisibleUserInfoUsecase {
     // 事务编排：读取 → 校验 → 幂等 → 更新 → 回读视图
     const result = await this.transactionRunner.run<UpdateVisibleUserInfoResult>(
       async (transactionContext) => {
-        const current = await this.accountService.findUserInfoByAccountId(
-          targetAccountId,
+        const current = await this.fetchUserInfoUsecase.executeStrict({
+          accountId: targetAccountId,
           transactionContext,
-        );
-        if (!current) {
-          throw new DomainError(ACCOUNT_ERROR.USER_INFO_NOT_FOUND, '用户信息不存在');
-        }
+        });
 
         const isSelf = session.accountId === targetAccountId;
         const isStaffRole = hasRole(session.roles, IdentityTypeEnum.STAFF);
@@ -136,9 +121,11 @@ export class UpdateVisibleUserInfoUsecase {
 
         let identityHintChanged = false;
         if (hasUserInfoUpdate) {
-          // 应用更新并保存
-          this.applyPatchToEntity(current, sanitized);
-          await this.accountService.saveUserInfo({ userInfo: current, transactionContext });
+          await this.accountService.updateUserInfoFields({
+            accountId: targetAccountId,
+            patch: sanitized,
+            transactionContext,
+          });
         }
         if (shouldUpdateIdentityHint && resolvedIdentityHint) {
           const account = await this.accountService.lockByIdForUpdate(
@@ -190,7 +177,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async sanitizePatch(
     patch: UserInfoPatch,
-    current: UserInfoRecord,
+    current: UserInfoView,
     flags: { isStaff: boolean; isSelf: boolean; isAdmin: boolean },
   ): Promise<UserInfoUpdatePatch> {
     const out: UserInfoUpdatePatch = {};
@@ -210,7 +197,7 @@ export class UpdateVisibleUserInfoUsecase {
 
   private async applyBasicFields(
     patch: UserInfoPatch,
-    current: UserInfoRecord,
+    current: UserInfoView,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
@@ -224,7 +211,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async applyNicknameField(
     patch: UserInfoPatch,
-    current: UserInfoRecord,
+    current: UserInfoView,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): Promise<void> {
@@ -311,7 +298,7 @@ export class UpdateVisibleUserInfoUsecase {
 
   private applyExtendedFields(
     patch: UserInfoPatch,
-    current: UserInfoRecord,
+    current: UserInfoView,
     allow: (key: UserInfoUpdateField) => boolean,
     assignIfChanged: <K extends UserInfoUpdateField>(key: K, next: UserInfoUpdatePatch[K]) => void,
   ): void {
@@ -367,7 +354,7 @@ export class UpdateVisibleUserInfoUsecase {
    */
   private async sanitizeNickname(
     value: string | null | undefined,
-    current: UserInfoRecord,
+    current: UserInfoView,
   ): Promise<string> {
     const val = normalizeVisibleNicknameInput(value);
     if (val !== current.nickname) {
@@ -456,25 +443,6 @@ export class UpdateVisibleUserInfoUsecase {
     if (!value) return null;
     const enumValues = Object.values(IdentityTypeEnum) as string[];
     return enumValues.includes(value) ? (value as IdentityTypeEnum) : null;
-  }
-
-  /**
-   * 将补丁应用到实体
-   */
-  private applyPatchToEntity(target: UserInfoRecord, patch: UserInfoUpdatePatch): void {
-    if (typeof patch.nickname !== 'undefined') target.nickname = patch.nickname;
-    if (typeof patch.gender !== 'undefined') target.gender = patch.gender;
-    if (typeof patch.birthDate !== 'undefined') target.birthDate = patch.birthDate;
-    if (typeof patch.avatarUrl !== 'undefined') target.avatarUrl = patch.avatarUrl;
-    if (typeof patch.email !== 'undefined') target.email = patch.email;
-    if (typeof patch.signature !== 'undefined') target.signature = patch.signature;
-    if (typeof patch.address !== 'undefined') target.address = patch.address;
-    if (typeof patch.phone !== 'undefined') target.phone = patch.phone;
-    if (typeof patch.tags !== 'undefined') target.tags = patch.tags;
-    if (typeof patch.geographic !== 'undefined') target.geographic = patch.geographic;
-    if (typeof patch.userState !== 'undefined') target.userState = patch.userState;
-    if (typeof patch.notifyCount !== 'undefined') target.notifyCount = patch.notifyCount;
-    if (typeof patch.unreadCount !== 'undefined') target.unreadCount = patch.unreadCount;
   }
 }
 
