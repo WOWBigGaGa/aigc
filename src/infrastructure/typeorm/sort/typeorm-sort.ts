@@ -1,7 +1,7 @@
 // src/infrastructure/typeorm/sort/typeorm-sort.ts
 import { DomainError, PAGINATION_ERROR } from '@core/common/errors/domain-error';
 import type { SortDirection, SortParam } from '@core/pagination/pagination.types';
-import type { ISortResolver } from '@core/sort/sort.ports';
+import type { ISortResolver } from '@core/sort/sort.contract';
 
 /**
  * TypeORM 排序解析器实现
@@ -90,8 +90,7 @@ export class TypeOrmSort implements ISortResolver {
     const primaryDir: SortDirection | undefined = finalBase.find(
       (s) => s.field === tie.primary,
     )?.direction;
-    const fallbackDir: SortDirection =
-      (finalBase[0]?.direction as SortDirection | undefined) ?? 'ASC';
+    const fallbackDir: SortDirection = finalBase[0]?.direction ?? 'ASC';
     const tieDir: SortDirection = primaryDir ?? fallbackDir;
 
     const withTie: ReadonlyArray<SortParam> = hasTie

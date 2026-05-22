@@ -1,8 +1,8 @@
 // src/usecases/verification/consume-verification-flow.usecase.ts
 
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 import {
   VerificationRecordType,
-  SubjectType,
   VerificationRecordStatus,
 } from '@app-types/models/verification-record.types';
 import {
@@ -10,17 +10,17 @@ import {
   PERMISSION_ERROR,
   VERIFICATION_RECORD_ERROR,
 } from '@core/common/errors/domain-error';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConsumableQueryService } from '@src/modules/verification-record/queries/consumable.query.service';
 import {
   VerificationRecordConsumeTargetConstraint,
   VerificationRecordService,
   VerificationRecordValidationSnapshot,
 } from '@src/modules/verification-record/verification-record.service';
-import { InviteCoachHandler } from './coach/invite-coach.handler';
-import { InviteCoachHandlerResult } from './coach/invite-coach-result.types';
-import { InviteManagerHandler } from './manager/invite-manager.handler';
-import { InviteManagerHandlerResult } from './manager/invite-manager-result.types';
+import {
+  TRANSACTION_RUNNER,
+  type TransactionRunner,
+} from '@src/usecases/common/ports/transaction-runner.contract';
 import { ResetPasswordHandler } from './password/reset-password.handler';
 import {
   ConsumeVerificationFlowParams,
@@ -51,12 +51,10 @@ export class ConsumeVerificationFlowUsecase {
     private readonly verificationRecordService: VerificationRecordService,
     private readonly consumableQueryService: ConsumableQueryService,
     private readonly resetPasswordHandler: ResetPasswordHandler,
-    private readonly inviteCoachHandler: InviteCoachHandler,
-    private readonly inviteManagerHandler: InviteManagerHandler,
+    @Inject(TRANSACTION_RUNNER)
+    private readonly transactionRunner: TransactionRunner,
   ) {
     this.registerHandler(this.resetPasswordHandler);
-    this.registerHandler(this.inviteCoachHandler);
-    this.registerHandler(this.inviteManagerHandler);
   }
 
   /**
@@ -88,14 +86,20 @@ export class ConsumeVerificationFlowUsecase {
    * @returns 验证流程结果
    */
   async execute(params: ConsumeVerificationFlowParams): Promise<VerificationFlowResult> {
-    const { token, consumedByAccountId, expectedType, manager, resetPassword } = params;
+    const { token, consumedByAccountId, expectedType, transactionContext, resetPassword } = params;
 
-    return this.verificationRecordService.runTransaction(async (transactionManager) => {
-      const activeManager = manager || transactionManager;
-
+    const run = async (
+      activeTransactionContext: PersistenceTransactionContext,
+    ): Promise<VerificationFlowResult> => {
       // 第一步：在事务中重新验证并获取验证记录视图
       // 这里需要重新验证是因为从预读到消费之间可能有状态变化
-      const recordView = await this.consumableQueryService.findConsumableRecord(token);
+      const recordView = await this.consumableQueryService.findConsumableRecord(
+        token,
+        params.audience,
+        params.email,
+        params.phone,
+        activeTransactionContext,
+      );
 
       if (!recordView) {
         throw new DomainError(
@@ -121,46 +125,27 @@ export class ConsumeVerificationFlowUsecase {
       const context: VerificationFlowContext = {
         recordView,
         consumedByAccountId,
-        manager: activeManager,
+        transactionContext: activeTransactionContext,
         resetPassword, // 传递密码重置载荷
       };
 
       // 第五步：执行业务逻辑
       const businessResult = await handler.handle(context);
 
-      // 第六步：从业务结果中提取主体信息
-      let subjectType: SubjectType | undefined;
-      let subjectId: number | undefined;
-
-      // 根据验证记录类型和业务结果提取主体信息
-      if (recordView.type === VerificationRecordType.INVITE_COACH && businessResult) {
-        // 对于 INVITE_COACH 类型，从 InviteCoachHandlerResult 中提取 coachId
-        const coachResult = businessResult as InviteCoachHandlerResult;
-        if (coachResult.coachId) {
-          subjectType = SubjectType.COACH;
-          subjectId = coachResult.coachId;
-        }
-      } else if (recordView.type === VerificationRecordType.INVITE_MANAGER && businessResult) {
-        // 对于 INVITE_MANAGER 类型，从 InviteManagerHandlerResult 中提取 managerId
-        const managerResult = businessResult as InviteManagerHandlerResult;
-        if (managerResult.managerId) {
-          subjectType = SubjectType.MANAGER;
-          subjectId = managerResult.managerId;
-        }
-      }
-
-      // 第七步：消费验证记录（在同一事务中）
+      // 第六步：消费验证记录（在同一事务中）
       await this.consumeVerificationRecord({
         token,
         consumedByAccountId,
         expectedType: recordView.type,
-        manager: activeManager,
-        subjectType,
-        subjectId,
+        transactionContext: activeTransactionContext,
       });
 
       return businessResult;
-    });
+    };
+
+    return transactionContext
+      ? await run(transactionContext)
+      : await this.transactionRunner.run(run);
   }
 
   /**
@@ -201,11 +186,11 @@ export class ConsumeVerificationFlowUsecase {
     token: string;
     consumedByAccountId?: number;
     expectedType?: VerificationRecordType;
-    subjectType?: SubjectType;
-    subjectId?: number;
-    manager?: Parameters<VerificationRecordService['consumeRecord']>[0]['manager'];
+    transactionContext?: Parameters<
+      VerificationRecordService['consumeRecord']
+    >[0]['transactionContext'];
   }): Promise<void> {
-    const { token, consumedByAccountId, expectedType, subjectType, subjectId, manager } = params;
+    const { token, consumedByAccountId, expectedType, transactionContext } = params;
     const now = new Date();
     const targetConstraint = this.resolveTargetConstraint({ consumedByAccountId, expectedType });
     const tokenFp = this.verificationRecordService.generateTokenFingerprint(token);
@@ -215,12 +200,10 @@ export class ConsumeVerificationFlowUsecase {
       context: {
         expectedType,
         consumedByAccountId,
-        subjectType,
-        subjectId,
         now,
         targetConstraint,
       },
-      manager,
+      transactionContext,
     });
 
     if (affected === 0) {
@@ -293,18 +276,6 @@ export class ConsumeVerificationFlowUsecase {
     }
     if (expectedType === VerificationRecordType.PASSWORD_RESET) {
       return { mode: 'IGNORE' };
-    }
-    if (expectedType === VerificationRecordType.INVITE_COACH) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Coach 邀请需要指定消费者账户 ID',
-      );
-    }
-    if (expectedType === VerificationRecordType.INVITE_MANAGER) {
-      throw new DomainError(
-        VERIFICATION_RECORD_ERROR.VERIFICATION_INVALID,
-        'Manager 邀请需要指定消费者账户 ID',
-      );
     }
     return { mode: 'NULL_ONLY' };
   }

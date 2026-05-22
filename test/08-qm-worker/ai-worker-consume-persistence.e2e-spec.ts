@@ -14,10 +14,8 @@ import { DomainError, THIRDPARTY_ERROR } from '@src/core/common/errors/domain-er
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { AiProviderCallRecordEntity } from '@src/modules/ai-provider-call-record/ai-provider-call-record.entity';
-import {
-  AsyncTaskRecordEntity,
-  type AsyncTaskRecordStatus,
-} from '@src/modules/async-task-record/async-task-record.entity';
+import { AsyncTaskRecordEntity } from '@src/modules/async-task-record/async-task-record.entity';
+import type { AsyncTaskRecordStatus } from '@src/modules/async-task-record/async-task-record.types';
 import { AsyncTaskRecordService } from '@src/modules/async-task-record/async-task-record.service';
 import { AiWorkerService } from '@src/modules/common/ai-worker/ai-worker.service';
 import { Queue } from 'bullmq';

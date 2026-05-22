@@ -33,7 +33,8 @@ Source of truth: This file defines QM worker integration rules; code examples el
    - 再开始实现入队与消费逻辑。
 2. 所有队列入口必须先过 Usecase
    - Resolver / Controller 仅做鉴权、校验、提取 actor。
-   - 入队、审计记录、失败回退统一放在 Usecase。
+   - 默认由 Usecase 负责编排入队、审计记录与失败回退。
+   - 若某能力已收敛为 modules(service) 门面 + infrastructure 实现的一体化技术能力，可由 Usecase 仅调用该门面并处理业务补偿。
 3. 所有入队必须具备 `traceId` 与可选 `dedupKey`
    - 未显式传入时由基础设施生成稳定标识。
    - 传入 `dedupKey` 时，必须先定义“命中复用”或“允许重入队”策略。
@@ -78,11 +79,15 @@ Source of truth: This file defines QM worker integration rules; code examples el
   - Third-party Client 目录：`src/infrastructure/ai/providers/`
   - 参考：`src/modules/common/ai-worker/providers/ai-provider-registry.ts`
   - 参考：`src/infrastructure/ai/providers/qwen/qwen-generate.provider.ts`
-- BullMQ 注册与 Contract
+- BullMQ 注册与 Runtime Contract
   - 目录：基础设施注册层
+  - 这里的 Contract 是 BullMQ runtime contract，只描述队列传输 payload / result / validator。
+    它不是 layer boundary contract，也不是上层业务类型的真源。
   - 参考：`src/infrastructure/bullmq/bullmq.constants.ts`
   - 参考：`src/infrastructure/bullmq/contracts/job-contract.registry.ts`
   - 参考：`src/infrastructure/bullmq/queue-registry.ts`
+  - Runtime contract 文件使用 `*.runtime.ts`、`*.payload.ts` 或 `*.registry.ts`，不得使用
+    layer boundary contract 的 `*.contract.ts` 后缀。
 - 审计记录
   - 统一走 Async Task Record Service，不单独造表。
   - 参考：`src/usecases/ai-queue/queue-ai.usecase.ts`

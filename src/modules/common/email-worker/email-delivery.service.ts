@@ -1,16 +1,17 @@
 // src/modules/common/email-worker/email-delivery.service.ts
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { PinoLogger } from 'nestjs-pino';
+import { EMAIL_DELIVERY_OPTIONS, type EmailDeliveryOptions } from './email-worker.options';
 import type { SendEmailInput, SendEmailResult } from './email-worker.types';
 
 @Injectable()
 export class EmailDeliveryService {
   constructor(
     private readonly logger: PinoLogger,
-    private readonly configService: ConfigService,
+    @Inject(EMAIL_DELIVERY_OPTIONS)
+    private readonly options: EmailDeliveryOptions,
   ) {
     this.logger.setContext(EmailDeliveryService.name);
   }
@@ -22,9 +23,9 @@ export class EmailDeliveryService {
     const providerMessageId = `sendmail-${randomUUID()}`;
     const body = input.html ?? input.text ?? '';
     const contentType = input.html ? 'text/html; charset="UTF-8"' : 'text/plain; charset="UTF-8"';
-    const runAsUser = this.configService.get<string>('EMAIL_SEND_AS_USER');
+    const runAsUser = this.options.runAsUser;
     const deliveryMode = 'sendmail';
-    const sendmailPath = '/usr/sbin/sendmail';
+    const sendmailPath = this.options.sendmailPath;
     this.logger.info(
       {
         deliveryMode,

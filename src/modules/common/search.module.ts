@@ -4,7 +4,7 @@
 import { Module } from '@nestjs/common';
 // 移除对具体驱动类型的输入约束，保持端口抽象一致
 
-import type { ISearchEngine } from '@core/search/search.ports';
+import type { ISearchEngine } from '@core/search/search.contract';
 import { TypeOrmSearch } from '@src/infrastructure/typeorm/search/typeorm-search';
 
 export const SEARCH_TOKENS = {

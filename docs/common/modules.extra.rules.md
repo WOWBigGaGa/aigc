@@ -1,15 +1,15 @@
 <!-- docs/common/modules.extra.rules.md -->
 
 Purpose: Define optional but recommended guardrails for modules(service) implementation patterns.
-Read when: You are implementing, reviewing, or refactoring module-level pagination or same-domain transaction helpers.
+Read when: You are implementing, reviewing, or refactoring module-level pagination or same-domain transaction-context participation.
 Do not read when: Your task does not change optional modules(service) practice boundaries.
 Source of truth: This file defines modules(service) supplementary rules; code examples elsewhere must not override it.
 
 # Modules(service) 补充说明
 
 本说明用于记录 modules(service) 的可选能力与实践约定。
-属于补充指引，默认不改变层级所有权
-仅在涉及对应主题时补充实践约束
+属于补充指引，默认不改变层级所有权。
+仅在涉及对应主题时补充实践约束。
 
 ## 统一分页服务
 
@@ -17,11 +17,13 @@ Source of truth: This file defines modules(service) supplementary rules; code ex
   负责排序白名单、默认排序、游标与页大小约束。
 - 领域 service 只提供参数与查询上下文，不重复分页逻辑。
 
-## 事务回调能力
+## 事务上下文参与能力
 
-- 可选提供 runTransaction 或事务管理器封装。
-  供 usecase 在同域内编排。
-- 仅限同域事务，禁止跨域事务聚合。
+- modules(service) 可以接收 usecase 传入的 transaction context。
+- modules(service) 可以基于该事务上下文执行同事务内细粒度写入。
+- modules(service) 不得提供通用 `runTransaction`、`withTransaction` 或等价事务入口。
+- 已迁移的 service 级事务入口不得恢复，不得新增调用点。
+- 跨 bounded context 或跨聚合事务必须由 usecase 持有事务边界。
 
 ## Service 职责声明
 

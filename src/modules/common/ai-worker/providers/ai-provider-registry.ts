@@ -1,16 +1,17 @@
 // src/modules/common/ai-worker/providers/ai-provider-registry.ts
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import type { AiProviderClient } from '@core/ai/ai-provider.interface';
 import { LocalMockAiProvider } from '@src/infrastructure/ai/providers/local/local-mock-ai.provider';
 import { OpenAiGenerateProvider } from '@src/infrastructure/ai/providers/openai/openai-generate.provider';
 import { QwenGenerateProvider } from '@src/infrastructure/ai/providers/qwen/qwen-generate.provider';
+import { AI_PROVIDER_REGISTRY_OPTIONS, type AiProviderRegistryOptions } from '../ai-worker.options';
 
 @Injectable()
 export class AiProviderRegistry {
   constructor(
-    private readonly configService: ConfigService,
+    @Inject(AI_PROVIDER_REGISTRY_OPTIONS)
+    private readonly options: AiProviderRegistryOptions,
     private readonly localMockProvider: LocalMockAiProvider,
     private readonly openAiGenerateProvider: OpenAiGenerateProvider,
     private readonly qwenGenerateProvider: QwenGenerateProvider,
@@ -25,8 +26,7 @@ export class AiProviderRegistry {
   }
 
   private isMockMode(): boolean {
-    const mode = this.configService.get<string>('aiWorker.providerMode', 'mock');
-    return mode.trim().toLowerCase() === 'mock';
+    return this.options.providerMode.trim().toLowerCase() === 'mock';
   }
 
   private resolveProviderName(inputProvider?: string): string {

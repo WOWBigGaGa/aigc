@@ -2,20 +2,10 @@
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 
 export const roleHierarchy: Readonly<Record<IdentityTypeEnum, ReadonlyArray<IdentityTypeEnum>>> = {
-  ADMIN: [
-    IdentityTypeEnum.MANAGER,
-    IdentityTypeEnum.COACH,
-    IdentityTypeEnum.CUSTOMER,
-    IdentityTypeEnum.LEARNER,
-  ],
-  MANAGER: [IdentityTypeEnum.COACH, IdentityTypeEnum.CUSTOMER, IdentityTypeEnum.LEARNER],
-  COACH: [IdentityTypeEnum.CUSTOMER],
-  CUSTOMER: [IdentityTypeEnum.LEARNER],
-  LEARNER: [],
-  STAFF: [],
-  STUDENT: [],
-  REGISTRANT: [],
+  ADMIN: [IdentityTypeEnum.STAFF, IdentityTypeEnum.GUEST],
+  STAFF: [IdentityTypeEnum.GUEST],
   GUEST: [],
+  REGISTRANT: [],
 };
 
 export function expandRoles(roles: ReadonlyArray<string | IdentityTypeEnum>): IdentityTypeEnum[] {

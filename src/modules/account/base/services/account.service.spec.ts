@@ -4,7 +4,6 @@ import { DomainError } from '@core/common/errors/domain-error';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PROFILE_PROVIDER_MAP_TOKEN } from '../constants/provider-tokens';
 import { AccountEntity } from '../entities/account.entity';
 import { UserInfoEntity } from '../entities/user-info.entity';
 import { AccountSecurityService } from './account-security.service';
@@ -24,8 +23,6 @@ describe('AccountService - 密码预处理功能', () => {
     // 模拟方法
   };
 
-  const mockProviderMap = new Map();
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -41,10 +38,6 @@ describe('AccountService - 密码预处理功能', () => {
         {
           provide: AccountSecurityService,
           useValue: mockAccountSecurityService,
-        },
-        {
-          provide: PROFILE_PROVIDER_MAP_TOKEN,
-          useValue: mockProviderMap,
         },
       ],
     }).compile();

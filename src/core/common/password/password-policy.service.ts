@@ -20,6 +20,18 @@ export interface PasswordPolicyConfig {
   checkBlacklist: boolean;
 }
 
+type PasswordPolicyCharRequirementKey = Extract<
+  keyof PasswordPolicyConfig,
+  'requireLowercase' | 'requireUppercase' | 'requireNumbers' | 'requireSpecialChars'
+>;
+
+interface PasswordCharTypeCheck {
+  regex: RegExp;
+  configKey: PasswordPolicyCharRequirementKey;
+  errorMessage: string;
+  strengthBonus: number;
+}
+
 /**
  * 密码校验结果
  */
@@ -88,12 +100,12 @@ export class PasswordPolicyService {
   /**
    * 字符类型检查配置映射
    */
-  private readonly charTypeChecks = new Map([
+  private readonly charTypeChecks = new Map<string, PasswordCharTypeCheck>([
     [
       'lowercase',
       {
         regex: /[a-z]/,
-        configKey: 'requireLowercase' as keyof PasswordPolicyConfig,
+        configKey: 'requireLowercase',
         errorMessage: '密码必须包含小写字母',
         strengthBonus: 15,
       },
@@ -102,7 +114,7 @@ export class PasswordPolicyService {
       'uppercase',
       {
         regex: /[A-Z]/,
-        configKey: 'requireUppercase' as keyof PasswordPolicyConfig,
+        configKey: 'requireUppercase',
         errorMessage: '密码必须包含大写字母',
         strengthBonus: 15,
       },
@@ -111,7 +123,7 @@ export class PasswordPolicyService {
       'numbers',
       {
         regex: /\d/,
-        configKey: 'requireNumbers' as keyof PasswordPolicyConfig,
+        configKey: 'requireNumbers',
         errorMessage: '密码必须包含数字',
         strengthBonus: 20,
       },
@@ -120,7 +132,7 @@ export class PasswordPolicyService {
       'specialChars',
       {
         regex: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?~`]/,
-        configKey: 'requireSpecialChars' as keyof PasswordPolicyConfig,
+        configKey: 'requireSpecialChars',
         errorMessage: '密码必须包含特殊字符 (!@#$%^&* 等)',
         strengthBonus: 20,
       },

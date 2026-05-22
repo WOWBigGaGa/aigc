@@ -3,12 +3,11 @@
 
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import { Gender, UserState, type GeographicInfo } from '@app-types/models/user-info.types';
-import { Field, ID } from '@nestjs/graphql';
-import { EncryptedField } from '@src/infrastructure/field-encryption/field-encryption.decorator';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -16,13 +15,13 @@ import {
 } from 'typeorm';
 import { AccountEntity } from './account.entity';
 
+@Index('uk_account_id', ['accountId'], { unique: true })
 @Entity('base_user_info')
 export class UserInfoEntity {
-  @Field(() => ID)
   @PrimaryGeneratedColumn({ type: 'int', comment: '主键' })
   id!: number;
 
-  @Column({ name: 'account_id', type: 'int', comment: 'user_accounts.id' })
+  @Column({ name: 'account_id', type: 'int', comment: 'base_user_account.id' })
   accountId!: number;
 
   @OneToOne(() => AccountEntity)
@@ -74,7 +73,6 @@ export class UserInfoEntity {
     nullable: true,
     comment: '私有数据加密字段',
   })
-  @EncryptedField() // 使用新的加密装饰器
   metaDigest!: IdentityTypeEnum[] | null; // 修改：从 string | null 改为 IdentityTypeEnum[] | null
 
   @Column({ name: 'notify_count', type: 'int', default: 0, comment: '通知数' })
@@ -88,8 +86,7 @@ export class UserInfoEntity {
     type: 'enum',
     enum: UserState,
     default: UserState.PENDING,
-    comment:
-      '账户统一状态：ACTIVE=在读/在职，INACTIVE=离校/离职，SUSPENDED=暂离（休学/病休），PENDING=待完善',
+    comment: '账户统一状态：ACTIVE=可用，INACTIVE=停用，SUSPENDED=暂停，PENDING=待完善',
   })
   userState!: UserState;
 

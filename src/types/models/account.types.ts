@@ -14,21 +14,11 @@ export enum AccountStatus {
   INACTIVE = 'INACTIVE', // 长期不活跃
 }
 
-// 实际上 SSTS 的后台只需要 staff, student，因为这些只是记录信息，而不分配权限
-// 权限由 user_info 表的 access_group 定义
-// 这里提供了更多的枚举项，如 customer 和 learner 是为了展示设计，
-// 比如说一个培训机构除了 staff 还可以增加 customer 和 learner 表用于记录信息
 export enum IdentityTypeEnum {
-  STAFF = 'STAFF',
-  STUDENT = 'STUDENT',
-  MANAGER = 'MANAGER',
-  COACH = 'COACH',
-  CUSTOMER = 'CUSTOMER',
-  LEARNER = 'LEARNER',
-  REGISTRANT = 'REGISTRANT',
-  // 添加测试和权限控制需要的角色
   ADMIN = 'ADMIN',
+  STAFF = 'STAFF',
   GUEST = 'GUEST',
+  REGISTRANT = 'REGISTRANT',
 }
 
 export enum LoginTypeEnum {
@@ -88,7 +78,7 @@ export enum AudienceTypeEnum {
 
 /**
  * 就业状态枚举
- * 适用于所有员工类型（教职工、教练、经理等）
+ * 适用于通用工作人员状态
  */
 export enum EmploymentStatus {
   ACTIVE = 'ACTIVE',

@@ -53,7 +53,7 @@ export class LoginBootstrapQueryService {
       userWithAccessGroup: {
         id: params.account.id,
         loginEmail: params.account.loginEmail,
-        accessGroup: params.userInfo.accessGroup ?? [IdentityTypeEnum.REGISTRANT],
+        accessGroup: this.normalizeAccessGroup(params.userInfo.accessGroup),
       },
       account: {
         id: params.account.id,
@@ -73,5 +73,13 @@ export class LoginBootstrapQueryService {
         updatedAt: params.userInfo.updatedAt,
       },
     };
+  }
+
+  private normalizeAccessGroup(accessGroup?: IdentityTypeEnum[] | null): IdentityTypeEnum[] {
+    const validRoles = new Set<string>(Object.values(IdentityTypeEnum));
+    const normalized = (accessGroup ?? []).filter((role): role is IdentityTypeEnum =>
+      validRoles.has(String(role)),
+    );
+    return normalized.length > 0 ? Array.from(new Set(normalized)) : [IdentityTypeEnum.REGISTRANT];
   }
 }

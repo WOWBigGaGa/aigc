@@ -5,7 +5,6 @@ import { AiQueueUsecasesModule } from '@src/usecases/ai-queue/ai-queue-usecases.
 import { AuthUsecasesModule } from '@src/usecases/auth/auth-usecases.module';
 import { AsyncTaskRecordUsecasesModule } from '@src/usecases/async-task-record/async-task-record-usecases.module';
 import { EmailQueueUsecasesModule } from '@src/usecases/email-queue/email-queue-usecases.module';
-import { IdentityManagementUsecasesModule } from '@src/usecases/identity-management/identity-management-usecases.module';
 import { RegistrationUsecasesModule } from '@src/usecases/registration/registration-usecases.module';
 import { ThirdPartyAccountsUsecasesModule } from '@src/usecases/third-party-accounts/third-party-accounts-usecases.module';
 import { VerificationRecordUsecasesModule } from '@src/usecases/verification-record/verification-record-usecases.module';
@@ -13,6 +12,8 @@ import { VerificationUsecasesModule } from '@src/usecases/verification/verificat
 import { MagicWorkshopModule } from '@src/modules/magic-workshop/magic-workshop.module';
 
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 
 // Resolvers
 import { AccountResolver } from './account/account.resolver';
@@ -20,11 +21,6 @@ import { AiResolver } from './ai/ai.resolver';
 import { UserInfoResolver } from './account/user-info.resolver';
 import { AuthResolver } from './auth/auth.resolver';
 import { EmailResolver } from './email/email.resolver';
-import { CoachResolver } from './identity-management/coach/coach.resolver';
-import { CustomerResolver } from './identity-management/customer/customer.resolver';
-import { IdentityManagementResolver } from './identity-management/identity-management.resolver';
-import { LearnerResolver } from './identity-management/learner/learner.resolver';
-import { ManagerResolver } from './identity-management/manager/manager.resolver';
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
@@ -34,6 +30,12 @@ import { MagicWorkshopResolver } from './magic-workshop/magic-workshop.resolver'
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
+import {
+  QM_WORKER_ENTRY_OPTIONS,
+  type QmWorkerEntryOptions,
+} from './guards/qm-worker-entry.options';
+import { JWT_STRATEGY_OPTIONS, type JwtStrategyOptions } from './strategies/jwt-strategy.options';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 /**
  * GraphQL 适配器模块
@@ -49,12 +51,42 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     EmailQueueUsecasesModule,
     RegistrationUsecasesModule,
     ThirdPartyAccountsUsecasesModule,
-    IdentityManagementUsecasesModule,
     VerificationRecordUsecasesModule,
     VerificationUsecasesModule,
     MagicWorkshopModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   providers: [
+    {
+      provide: JWT_STRATEGY_OPTIONS,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService): JwtStrategyOptions => {
+        const secret = configService.get<string>('jwt.secret');
+        if (!secret) {
+          throw new Error('JWT secret 配置缺失');
+        }
+        const issuer = configService.get<string>('jwt.issuer')?.trim() || undefined;
+        const audience = configService
+          .get<string>('jwt.audience')
+          ?.split(',')
+          .map((audienceItem) => audienceItem.trim())
+          .filter((audienceItem) => audienceItem.length > 0);
+        return {
+          secret,
+          issuer,
+          audience: audience && audience.length > 0 ? audience : undefined,
+        };
+      },
+    },
+    {
+      provide: QM_WORKER_ENTRY_OPTIONS,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService): QmWorkerEntryOptions => ({
+        aiEnabled: configService.get<boolean | undefined>('qmWorkerEntry.ai.enabled') === true,
+        emailEnabled:
+          configService.get<boolean | undefined>('qmWorkerEntry.email.enabled') === true,
+      }),
+    },
     // Resolvers
     AccountResolver,
     AiResolver,
@@ -63,17 +95,13 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     EmailResolver,
     RegistrationResolver,
     VerificationRecordResolver,
-    IdentityManagementResolver, // 注册身份管理 resolver
-    LearnerResolver, // 注册学员管理 resolver
-    CustomerResolver, // 注册客户管理 resolver
-    CoachResolver, // 注册教练管理 resolver
-    ManagerResolver, // 注册经理管理 resolver
     UserInfoResolver,
     MagicWorkshopResolver,
     // Guards
     QmWorkerEntryGuard,
     JwtAuthGuard,
     RolesGuard,
+    JwtStrategy,
   ],
   exports: [
     // Resolvers
@@ -84,16 +112,12 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     EmailResolver,
     RegistrationResolver,
     VerificationRecordResolver,
-    IdentityManagementResolver, // 导出身份管理 resolver
-    LearnerResolver, // 导出学员管理 resolver
-    CustomerResolver, // 导出客户管理 resolver
-    CoachResolver, // 导出教练管理 resolver
-    ManagerResolver, // 导出经理管理 resolver
     UserInfoResolver,
     MagicWorkshopResolver,
     QmWorkerEntryGuard,
     JwtAuthGuard,
     RolesGuard,
+    JwtStrategy,
   ],
 })
 export class GraphQLAdapterModule {}

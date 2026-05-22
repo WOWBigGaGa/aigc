@@ -2,7 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as CryptoJS from 'crypto-js';
-import { ENCRYPTED_FIELDS_METADATA_KEY } from './field-encryption.decorator';
+import { getEncryptedFields } from './field-encryption.metadata';
 
 const getRequiredConfig = (config: ConfigService, key: string): string => {
   const value = config.get<string>(key);
@@ -54,8 +54,7 @@ export class FieldEncryptionService {
 
   encryptEntity(entity: unknown) {
     if (typeof entity !== 'object' || entity === null) return;
-    const fields = (Reflect.getMetadata(ENCRYPTED_FIELDS_METADATA_KEY, entity.constructor) ??
-      []) as (string | symbol)[];
+    const fields = getEncryptedFields(entity.constructor);
     for (const field of fields) {
       const val = (entity as Record<string | symbol, unknown>)[field];
 
@@ -72,8 +71,7 @@ export class FieldEncryptionService {
 
   decryptEntity(entity: unknown) {
     if (typeof entity !== 'object' || entity === null) return;
-    const fields = (Reflect.getMetadata(ENCRYPTED_FIELDS_METADATA_KEY, entity.constructor) ??
-      []) as (string | symbol)[];
+    const fields = getEncryptedFields(entity.constructor);
     for (const field of fields) {
       const val = (entity as Record<string | symbol, unknown>)[field];
 

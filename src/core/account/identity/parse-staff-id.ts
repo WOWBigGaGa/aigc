@@ -2,7 +2,7 @@
 import { ACCOUNT_ERROR, DomainError } from '../../common/errors/domain-error';
 
 /**
- * 解析 Staff ID（校园网工号）为 number，并在无效时抛出领域错误。
+ * 解析 Staff ID（员工编号）为 number，并在无效时抛出领域错误。
  * - 允许输入为 string 或 number；string 会做去空格与前导零处理后再解析。
  * - 禁止 NaN、Infinity、负数、空字符串等无效值。
  * - 纯函数：不依赖外部状态或框架。

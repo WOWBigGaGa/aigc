@@ -3,7 +3,7 @@
 
 import { DomainError, PAGINATION_ERROR } from '@core/common/errors/domain-error';
 import { isCursorMode, isOffsetMode } from '@core/pagination/pagination.policy';
-import type { ICursorSigner, IPaginator } from '@core/pagination/pagination.ports';
+import type { ICursorSigner, IPaginator } from '@core/pagination/pagination.contract';
 import type {
   CursorParams,
   OffsetParams,

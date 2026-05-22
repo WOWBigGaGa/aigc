@@ -4,8 +4,6 @@ import { JwtPayload } from '@app-types/jwt.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
 import {
   CreatableVerificationRecordType,
-  SubjectType,
-  VerificationRecordStatus,
   VerificationRecordType,
 } from '@app-types/models/verification-record.types';
 import { DomainError, VERIFICATION_RECORD_ERROR } from '@core/common/errors/domain-error';
@@ -67,7 +65,7 @@ export class VerificationRecordResolver {
         issuedByAccountId: user.sub,
       });
 
-      // 服务端权限判断：只有 ADMIN 和 MANAGER 角色在服务端生成 token 时才能获取明文 token
+      // 服务端权限判断：只有 ADMIN 和 STAFF 角色在服务端生成 token 时才能获取明文 token
       // 统一转换为小写进行比较，与 RolesGuard 保持一致
       const normalizedUserRoles =
         user.accessGroup?.map((role) =>
@@ -76,7 +74,7 @@ export class VerificationRecordResolver {
 
       const canReturnToken =
         (normalizedUserRoles.includes(IdentityTypeEnum.ADMIN.toLowerCase()) ||
-          normalizedUserRoles.includes(IdentityTypeEnum.MANAGER.toLowerCase())) &&
+          normalizedUserRoles.includes(IdentityTypeEnum.STAFF.toLowerCase())) &&
         result.generatedByServer === true;
 
       return {
@@ -114,10 +112,6 @@ export class VerificationRecordResolver {
    */
   private mapCreatableType(type: CreatableVerificationRecordType): VerificationRecordType {
     switch (type) {
-      case CreatableVerificationRecordType.INVITE_COACH:
-        return VerificationRecordType.INVITE_COACH;
-      case CreatableVerificationRecordType.INVITE_MANAGER:
-        return VerificationRecordType.INVITE_MANAGER;
       case CreatableVerificationRecordType.PASSWORD_RESET:
         return VerificationRecordType.PASSWORD_RESET;
     }
@@ -175,61 +169,12 @@ export class VerificationRecordResolver {
   ): Promise<UpdateVerificationRecordResult> {
     try {
       // 使用 ConsumeVerificationFlowUsecase 处理验证记录消费
-      const result = await this.consumeVerificationFlowUsecase.execute({
+      await this.consumeVerificationFlowUsecase.execute({
         token: input.token,
         consumedByAccountId: user.sub,
         expectedType: input.expectedType,
       });
 
-      // 对于 INVITE_COACH 类型，返回 Coach 相关信息
-      if (result && typeof result === 'object' && 'coachId' in result) {
-        return {
-          success: true,
-          data: {
-            id: result.recordId,
-            type: VerificationRecordType.INVITE_COACH,
-            status: VerificationRecordStatus.CONSUMED,
-            expiresAt: new Date(),
-            notBefore: null,
-            targetAccountId: result.accountId,
-            subjectType: SubjectType.COACH,
-            subjectId: result.coachId,
-            payload: null,
-            issuedByAccountId: null,
-            consumedByAccountId: result.accountId,
-            consumedAt: new Date(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-          message: null,
-        };
-      }
-
-      // 对于 INVITE_MANAGER 类型，返回 Manager 相关信息
-      if (result && typeof result === 'object' && 'managerId' in result) {
-        return {
-          success: true,
-          data: {
-            id: result.recordId,
-            type: VerificationRecordType.INVITE_MANAGER,
-            status: VerificationRecordStatus.CONSUMED,
-            expiresAt: new Date(),
-            notBefore: null,
-            targetAccountId: result.accountId,
-            subjectType: SubjectType.MANAGER,
-            subjectId: result.managerId,
-            payload: null,
-            issuedByAccountId: null,
-            consumedByAccountId: result.accountId,
-            consumedAt: new Date(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-          message: null,
-        };
-      }
-
-      // 对于其他类型，返回通用成功消息
       return {
         success: true,
         data: null,

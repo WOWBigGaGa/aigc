@@ -9,6 +9,13 @@ import { GraphQLModule } from '@nestjs/graphql';
 import type { Request } from 'express';
 import { PinoLogger } from 'nestjs-pino';
 
+type ApolloDriverPlugin = NonNullable<ApolloDriverConfig['plugins']>[number];
+
+const asApolloDriverPlugin = (plugin: unknown): ApolloDriverPlugin => {
+  // Apollo Server conditional exports can surface separate CJS/ESM private types under ts-jest.
+  return plugin as ApolloDriverPlugin;
+};
+
 /**
  * GraphQL 配置工厂函数
  * @param config 配置服务实例
@@ -25,8 +32,8 @@ const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => {
     sortSchema: config.get<boolean>('graphql.sortSchema'),
     subscriptions: config.get('graphql.subscriptions'),
     plugins: enableSandbox
-      ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })]
-      : [ApolloServerPluginLandingPageDisabled()],
+      ? [asApolloDriverPlugin(ApolloServerPluginLandingPageLocalDefault({ embed: true }))]
+      : [asApolloDriverPlugin(ApolloServerPluginLandingPageDisabled())],
     // 将原始请求对象注入到 GraphQL 上下文，供 JwtAuthGuard 与 RolesGuard 读取 Authorization 头
     context: ({ req }: { req: Request }) => ({ req }),
     csrfPrevention: false,

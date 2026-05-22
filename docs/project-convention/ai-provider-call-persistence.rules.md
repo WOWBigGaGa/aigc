@@ -1,6 +1,6 @@
 <!-- docs/project-convention/ai-provider-call-persistence.rules.md -->
 
-Purpose: Define persistence semantics and write boundaries for ai_provider_call_records.
+Purpose: Define persistence semantics and write boundaries for ai_provider_call_record.
 Read when: You are implementing, reviewing, or refactoring AI provider call record writes or fields.
 Do not read when: Your task does not change provider-call record boundaries.
 Source of truth: This file defines provider-call record rules; code examples elsewhere must not override it.
@@ -9,7 +9,7 @@ Source of truth: This file defines provider-call record rules; code examples els
 
 ## 目标
 
-- 本文定义 `ai_provider_call_records` 的主语义、字段职责、写入边界与上游责任。
+- 本文定义 `ai_provider_call_record` 的主语义、字段职责、写入边界与上游责任。
 - 本文用于约束 AI provider 调用级落库。
 - 避免和 `AsyncTaskRecord`、聚合统计、内容审计混用。
 - 本文优先服务当前 AI queue / worker 链路。
@@ -17,18 +17,25 @@ Source of truth: This file defines provider-call record rules; code examples els
 
 ## 表定位
 
-- `ai_provider_call_records` 一行只表达一次真实的 provider 调用结果。
+- `ai_provider_call_record` 一行只表达一次真实的 provider 调用结果。
 - 本表是 provider 调用记录表，不是任务生命周期表。
 - 本表不是聚合统计表。
 - 不承担日报、按模型汇总、按账号汇总等预聚合职责。
 - 本表不是内容审计表。
 - 不承载 prompt、text、metadata、outputText、vector 等内容字段。
 
+## 表名治理说明
+
+- 当前物理表名是单数名 `ai_provider_call_record`。
+- 数据库表名统一使用单数，详见
+  [database-baseline-delivery.rules.md](./database-baseline-delivery.rules.md)。
+- 本表不得恢复为复数表名。
+
 ## 与 `AsyncTaskRecord` 的边界
 
 - `AsyncTaskRecord` 记录异步任务生命周期。
 - 包括入队、处理中、完成、失败、重试次数、任务级时间点。
-- `ai_provider_call_records` 记录 provider 调用级事实。
+- `ai_provider_call_record` 记录 provider 调用级事实。
 - 包括调用了谁、用了什么模型、是否成功、token/cost/错误码、provider 开始/结束时间。
 - 一个异步任务可以没有 provider 调用记录：
   - 入队失败
@@ -41,7 +48,7 @@ Source of truth: This file defines provider-call record rules; code examples els
 
 ## 一行记录的判断标准
 
-- 只有发生了一次真实 provider 请求尝试，才允许写一条 `ai_provider_call_records`。
+- 只有发生了一次真实 provider 请求尝试，才允许写一条 `ai_provider_call_record`。
 - 只做任务入队、命中已有任务、worker 生命周期推进，不构成 provider 调用记录。
 - 同一次 provider 调用最终只应对应一行记录。
 - 若需要分阶段写入，必须由上游持有稳定记录锚点并更新同一行。
@@ -52,7 +59,7 @@ Source of truth: This file defines provider-call record rules; code examples els
 ### 标识与关联字段
 
 - `id`：表内主键，仅负责本表唯一性。
-- `async_task_record_id`：逻辑关联到 `base_async_task_records.id`，允许为空以支持非队列直调。
+- `async_task_record_id`：逻辑关联到 `base_async_task_record.id`，允许为空以支持非队列直调。
 - `trace_id`：任务级 / 调用链级追踪 ID。
 - 用于把同一条 AI 链路中的任务记录、provider 调用、失败排查关联起来。
 - `trace_id` 不是 HTTP `requestId`。
@@ -188,4 +195,4 @@ Source of truth: This file defines provider-call record rules; code examples els
 
 ## 一句总原则
 
-- `AsyncTaskRecord` 记“任务发生了什么”，`ai_provider_call_records` 记“provider 调用了什么且结果如何”，字段正确性由上游单一写入入口负责收敛，不靠数据库推导或碰巧约束。
+- `AsyncTaskRecord` 记“任务发生了什么”，`ai_provider_call_record` 记“provider 调用了什么且结果如何”，字段正确性由上游单一写入入口负责收敛，不靠数据库推导或碰巧约束。

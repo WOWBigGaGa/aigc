@@ -9,10 +9,10 @@ import {
 } from '@app-types/models/third-party-auth.types';
 import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ThirdPartyProvider } from '../interfaces/third-party-provider.interface';
+import { WEAPP_PROVIDER_OPTIONS, type WeAppProviderOptions } from './weapp-provider.options';
 
 /**
  * 微信小程序认证提供者
@@ -33,7 +33,8 @@ export class WeAppProvider implements ThirdPartyProvider {
 
   constructor(
     private readonly httpService: HttpService,
-    private readonly configService: ConfigService,
+    @Inject(WEAPP_PROVIDER_OPTIONS)
+    private readonly options: WeAppProviderOptions,
     private readonly logger: PinoLogger,
   ) {}
 
@@ -48,8 +49,8 @@ export class WeAppProvider implements ThirdPartyProvider {
   private pickApp({ audience }: { audience: AudienceTypeEnum }) {
     // TODO: 若将来一个 audience 对应不同的小程序，可在这里按 audience 选择 appId/secret
     return {
-      appId: this.configService.get<string>('WECHAT_APP_ID'),
-      appSecret: this.configService.get<string>('WECHAT_APP_SECRET'),
+      appId: this.options.appId,
+      appSecret: this.options.appSecret,
     };
   }
 

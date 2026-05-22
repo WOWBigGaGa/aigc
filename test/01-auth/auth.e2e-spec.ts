@@ -15,7 +15,7 @@ import { App } from 'supertest/types';
 import { DataSource, In } from 'typeorm';
 
 import { Gender, UserState } from '@app-types/models/user-info.types';
-import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
+import { ThirdPartyAuthEntity } from '@src/modules/third-party-auth/third-party-auth.entity';
 import { WeAppProvider } from '@src/modules/third-party-auth/providers/weapp.provider';
 import { CreateAccountUsecase } from '@src/usecases/account/create-account.usecase';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
@@ -261,35 +261,6 @@ describe('Auth (e2e)', () => {
                 createdAt
                 updatedAt
               }
-              identity {
-                ... on StaffType {
-                  staffId: id
-                  name
-                  remark
-                  jobTitle
-                  departmentId
-                  employmentStatus
-                }
-                ... on CoachType {
-                  coachId: id
-                  name
-                  remark
-                  employmentStatus
-                }
-                ... on ManagerType {
-                  managerId: id
-                  name
-                  remark
-                  employmentStatus
-                }
-                ... on CustomerType {
-                  customerId: id
-                  name
-                  contactPhone
-                  preferredContactTime
-                  remark
-                }
-              }
             }
           }
         `,
@@ -345,35 +316,6 @@ describe('Auth (e2e)', () => {
                 userState
                 createdAt
                 updatedAt
-              }
-              identity {
-                ... on StaffType {
-                  staffId: id
-                  name
-                  remark
-                  jobTitle
-                  departmentId
-                  employmentStatus
-                }
-                ... on CoachType {
-                  coachId: id
-                  name
-                  remark
-                  employmentStatus
-                }
-                ... on ManagerType {
-                  managerId: id
-                  name
-                  remark
-                  employmentStatus
-                }
-                ... on CustomerType {
-                  customerId: id
-                  name
-                  contactPhone
-                  preferredContactTime
-                  remark
-                }
               }
             }
           }
@@ -466,7 +408,7 @@ describe('Auth (e2e)', () => {
         activeUser.loginName,
         activeUser.loginPassword,
         LoginTypeEnum.PASSWORD,
-        'invalid-audience' as never,
+        'invalid-audience',
       );
 
       const { errors } = response.body;
@@ -497,8 +439,6 @@ describe('Auth (e2e)', () => {
       expect(data?.thirdPartyLogin.role).toBe(activeUser.identityType);
       expect(typeof data?.thirdPartyLogin.accessToken).toBe('string');
       expect(typeof data?.thirdPartyLogin.refreshToken).toBe('string');
-      // REGISTRANT 没有具体身份类型，identity 应为 null
-      expect(data?.thirdPartyLogin.identity).toBeNull();
     });
 
     it('未绑定的 WeApp 第三方登录应返回未绑定错误', async () => {

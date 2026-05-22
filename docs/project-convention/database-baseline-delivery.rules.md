@@ -140,6 +140,28 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
 
   正式环境、预发环境、部署建库流程不得依赖 `synchronize` 直接改库。
 
+  ### Rule 6. Table Name 统一使用单数
+
+  数据库表名统一使用单数 snake_case。
+
+  适用范围：
+
+  - `@Entity('<table_name>')`
+  - baseline migration 中的 `CREATE TABLE`
+  - 外键、唯一索引、普通索引、raw SQL、空库校验脚本中的表名引用
+  - 文档中描述物理表名的地方
+
+  规则：
+
+  - 新增表必须使用单数表名。
+  - 修改已有 schema 时，应优先把复数表名收敛为单数表名。
+  - 复数表名属于历史命名债务，不得作为新表命名模板。
+  - 若当前任务不是数据库命名收口，不应顺手重命名既有表。
+  - 表名重命名必须同时更新 entity、baseline migration、索引/外键引用、raw SQL、空库校验和相关测试。
+
+  当前项目已完成既有复数表名收口。
+  若后续发现遗漏的复数物理表名，应作为数据库命名治理缺陷处理，并同步更新完整 schema 引用链路。
+
   ## 推荐工作流
 
   ### 日常开发
@@ -164,20 +186,27 @@ Source of truth: This file defines baseline delivery rules; code examples elsewh
   npm run migration:drill:empty-db
   ```
 
-  如需将结果落到指定数据库（用于首次建表），使用：
+  默认会使用当前环境中的 `DB_NAME` 作为演练库，并先清空该库再执行 baseline migrations。
+  如需覆盖目标数据库（用于首次建表），使用：
 
   ```bash
   MIGRATION_DRILL_DATABASE=<目标数据库名> MIGRATION_DRILL_ALLOW_NON_TEST_DB=true npm run migration:drill:empty-db
+  ```
+
+  如确需使用临时库进行可回收演练，且账号具备全局建库/删库权限，使用：
+
+  ```bash
+  MIGRATION_DRILL_CREATE_TEMP_DB=true npm run migration:drill:empty-db
   ```
 
   说明：
 
   - 脚本内部固定 `synchronize=false`。
   - 不会因为 e2e 环境里的 `DB_SYNCHRONIZE=true` 而改写验证语义。
-  - 未指定 `MIGRATION_DRILL_DATABASE` 时，脚本会创建临时库并在结束后清理。
-  - 该方式更适合“可回收演练”。
-  - 指定 `MIGRATION_DRILL_DATABASE` 时，脚本会先清空该库再执行 baseline migrations。
-  - 该方式适合“首次建表交付”。
+  - 未指定 `MIGRATION_DRILL_DATABASE` 时，脚本默认使用 `DB_NAME`。
+  - 目标库会被先清空再执行 baseline migrations，适合“首次建表交付”或受限权限演练。
+  - 只有显式设置 `MIGRATION_DRILL_CREATE_TEMP_DB=true` 时，脚本才会创建临时库并在结束后清理。
+  - 临时库方式更适合“可回收演练”，但要求账号具备全局 `CREATE/DROP DATABASE` 权限。
   - 若数据库名已包含 `test/drill/ci`，可不传 `MIGRATION_DRILL_ALLOW_NON_TEST_DB=true`。
 
   ## 非目标

@@ -1,16 +1,19 @@
 // src/modules/third-party-auth/third-party-auth.module.ts
 import { HttpModule } from '@nestjs/axios';
 import { Module, Provider } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
-import { ThirdPartyAuthEntity } from '@src/modules/account/base/entities/third-party-auth.entity';
 
 import { ThirdPartyProviderEnum } from '@app-types/models/account.types';
 import { ThirdPartyProvider } from './interfaces/third-party-provider.interface';
+import {
+  WEAPP_PROVIDER_OPTIONS,
+  type WeAppProviderOptions,
+} from './providers/weapp-provider.options';
 import { WeAppProvider } from './providers/weapp.provider';
 import { WechatProvider } from './providers/wechat.provider';
 import { ThirdPartyAuthQueryService } from './queries/third-party-auth.query.service';
+import { ThirdPartyAuthEntity } from './third-party-auth.entity';
 import { PROVIDER_MAP, ThirdPartyAuthService } from './third-party-auth.service';
 
 /**
@@ -38,6 +41,14 @@ const providerMapFactory: Provider = {
 @Module({
   imports: [TypeOrmModule.forFeature([ThirdPartyAuthEntity]), HttpModule, ConfigModule],
   providers: [
+    {
+      provide: WEAPP_PROVIDER_OPTIONS,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService): WeAppProviderOptions => ({
+        appId: configService.get<string>('WECHAT_APP_ID')?.trim() || undefined,
+        appSecret: configService.get<string>('WECHAT_APP_SECRET')?.trim() || undefined,
+      }),
+    },
     WeAppProvider,
     WechatProvider,
     providerMapFactory,

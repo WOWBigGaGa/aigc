@@ -97,7 +97,7 @@
   ### `docs/project-convention`
 
   - `docs/project-convention/ai-provider-call-persistence.rules.md`
-    - `ai_provider_call_records` 的字段语义、写入边界和与 `AsyncTaskRecord` 的分工
+    - `ai_provider_call_record` 的字段语义、写入边界和与 `AsyncTaskRecord` 的分工
   - `docs/project-convention/database-baseline-delivery.rules.md`
     - 当前首版阶段的数据库 baseline migration 交付规则与空库 drill 原则
   - `docs/project-convention/e2e-test-groups.md`

@@ -50,8 +50,6 @@ export interface CreateVerificationRecordUsecaseResult {
 export class CreateVerificationRecordUsecase {
   private readonly supportedTypes = new Set<VerificationRecordType>([
     VerificationRecordType.PASSWORD_RESET,
-    VerificationRecordType.INVITE_COACH,
-    VerificationRecordType.INVITE_MANAGER,
   ]);
 
   constructor(
@@ -76,7 +74,7 @@ export class CreateVerificationRecordUsecase {
     const generatedByServer = !params.customToken;
 
     // 检查是否已存在相同的 token（防重复）
-    const tokenExists = await this.verificationRecordService.isTokenExists(token);
+    const tokenExists = await this.verificationRecordQueryService.isTokenExists(token);
     if (tokenExists) {
       // 如果是自定义 token，直接抛错
       if (params.customToken) {
@@ -96,7 +94,7 @@ export class CreateVerificationRecordUsecase {
       let newToken = token;
       while (retryCount < 3) {
         newToken = this.generateToken(params);
-        const retryTokenExists = await this.verificationRecordService.isTokenExists(newToken);
+        const retryTokenExists = await this.verificationRecordQueryService.isTokenExists(newToken);
         if (!retryTokenExists) {
           break;
         }

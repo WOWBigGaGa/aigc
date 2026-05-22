@@ -11,13 +11,8 @@ import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { AccountEntity } from '@src/modules/account/base/entities/account.entity';
-import { CoachEntity } from '@src/modules/account/identities/training/coach/account-coach.entity';
-import { LearnerEntity } from '@src/modules/account/identities/training/learner/account-learner.entity';
-import { ManagerEntity } from '@src/modules/account/identities/training/manager/account-manager.entity';
-import {
-  AsyncTaskRecordEntity,
-  type AsyncTaskRecordStatus,
-} from '@src/modules/async-task-record/async-task-record.entity';
+import { AsyncTaskRecordEntity } from '@src/modules/async-task-record/async-task-record.entity';
+import type { AsyncTaskRecordStatus } from '@src/modules/async-task-record/async-task-record.types';
 import { EmailDeliveryService } from '@src/modules/common/email-worker/email-delivery.service';
 import type {
   SendEmailInput,
@@ -101,22 +96,6 @@ const CREATE_VERIFICATION_RECORD_MUTATION = `
         id
         type
         status
-      }
-    }
-  }
-`;
-
-const CONSUME_VERIFICATION_RECORD_MUTATION = `
-  mutation ConsumeVerificationRecord($input: ConsumeVerificationRecordInput!) {
-    consumeVerificationRecord(input: $input) {
-      success
-      message
-      data {
-        id
-        type
-        status
-        subjectType
-        subjectId
       }
     }
   }
@@ -255,34 +234,6 @@ const createVerificationRecord = async (input: {
     throw new Error(data.createVerificationRecord.message ?? 'create verification failed');
   }
   return data.createVerificationRecord.token;
-};
-
-const consumeVerificationRecord = async (input: {
-  readonly apiApp: INestApplication;
-  readonly bearer: string;
-  readonly token: string;
-  readonly expectedType: VerificationRecordType;
-}): Promise<boolean> => {
-  const data = await postGraphql<{
-    consumeVerificationRecord: {
-      success: boolean;
-      message?: string | null;
-    };
-  }>({
-    apiApp: input.apiApp,
-    query: CONSUME_VERIFICATION_RECORD_MUTATION,
-    variables: {
-      input: {
-        token: input.token,
-        expectedType: input.expectedType,
-      },
-    },
-    bearer: input.bearer,
-  });
-  if (!data.consumeVerificationRecord.success) {
-    throw new Error(data.consumeVerificationRecord.message ?? 'consume verification failed');
-  }
-  return data.consumeVerificationRecord.success;
 };
 
 const resetPassword = async (input: {
@@ -1045,52 +996,27 @@ describe('邮件队列与 Worker（e2e）', () => {
   });
 
   describe('email 触发业务闭环', () => {
-    let managerAccessToken: string;
-    let learnerAccessToken: string;
-    let learnerAccountId: number;
+    let staffPrimaryAccessToken: string;
 
     beforeAll(async () => {
       const accountRepository = dataSource.getRepository(AccountEntity);
-      const existedManager = await accountRepository.findOne({
-        where: { loginName: testAccountsConfig.manager.loginName },
+      const existingStaffPrimary = await accountRepository.findOne({
+        where: { loginName: testAccountsConfig.staffPrimary.loginName },
       });
-      const existedLearner = await accountRepository.findOne({
-        where: { loginName: testAccountsConfig.learner.loginName },
-      });
-      if (!existedManager || !existedLearner) {
+      if (!existingStaffPrimary) {
         const createAccountUsecase = apiApp.get(CreateAccountUsecase);
-        const includeKeys: Array<keyof typeof testAccountsConfig> = [];
-        if (!existedManager) {
-          includeKeys.push('manager');
-        }
-        if (!existedLearner) {
-          includeKeys.push('learner');
-        }
         await seedTestAccounts({
           dataSource,
           createAccountUsecase,
-          includeKeys,
+          includeKeys: ['staffPrimary'],
         });
       }
 
-      managerAccessToken = await loginAndGetAccessToken({
+      staffPrimaryAccessToken = await loginAndGetAccessToken({
         apiApp,
-        loginName: testAccountsConfig.manager.loginName,
-        loginPassword: testAccountsConfig.manager.loginPassword,
+        loginName: testAccountsConfig.staffPrimary.loginName,
+        loginPassword: testAccountsConfig.staffPrimary.loginPassword,
       });
-      learnerAccessToken = await loginAndGetAccessToken({
-        apiApp,
-        loginName: testAccountsConfig.learner.loginName,
-        loginPassword: testAccountsConfig.learner.loginPassword,
-      });
-      learnerAccountId = getAccountIdFromToken({ apiApp, token: learnerAccessToken });
-
-      const learner = await dataSource.getRepository(LearnerEntity).findOne({
-        where: { accountId: learnerAccountId },
-      });
-      if (!learner) {
-        throw new Error('learner subject not found');
-      }
     });
 
     it('应覆盖 resetPassword 的 email 触发闭环', async () => {
@@ -1118,7 +1044,7 @@ describe('邮件队列与 Worker（e2e）', () => {
 
       const verificationToken = await createVerificationRecord({
         apiApp,
-        bearer: managerAccessToken,
+        bearer: staffPrimaryAccessToken,
         type: VerificationRecordType.PASSWORD_RESET,
         targetAccountId: inviteeAccountId,
         payload: {
@@ -1178,135 +1104,6 @@ describe('邮件队列与 Worker（e2e）', () => {
         loginPassword: newPassword,
       });
       expect(reloginToken).toBeTruthy();
-    }, 60000);
-
-    it('应覆盖 inviteManager 的 email 触发闭环', async () => {
-      const timestamp = Date.now();
-      const verificationToken = await createVerificationRecord({
-        apiApp,
-        bearer: managerAccessToken,
-        type: VerificationRecordType.INVITE_MANAGER,
-        targetAccountId: learnerAccountId,
-        payload: {
-          managerName: `E2E Manager ${timestamp}`,
-          remark: 'invite manager from email flow',
-        },
-      });
-
-      await assertVerificationRecordReadable({
-        apiApp,
-        token: verificationToken,
-        expectedType: VerificationRecordType.INVITE_MANAGER,
-      });
-
-      const dedupKey = `e2e-im-${timestamp}`;
-      const traceId = `e2e-im-t-${timestamp}`;
-      const enqueueResult = await queueEmail({
-        apiApp,
-        to: testAccountsConfig.learner.loginEmail,
-        subject: 'Invite Manager Verification',
-        text: `token=${verificationToken}`,
-        dedupKey,
-        traceId,
-        source: 'e2e-invite-manager-flow',
-      });
-
-      expect(enqueueResult.queued).toBe(true);
-      const finalState = await waitJobFinalState({
-        queue: emailQueue,
-        jobId: enqueueResult.jobId,
-        timeoutMs: 20000,
-        pollMs: 150,
-      });
-      expect(finalState.state).toBe('completed');
-
-      const asyncRecord = await waitAsyncTaskRecord({
-        dataSource,
-        queueName: BULLMQ_QUEUES.EMAIL,
-        jobId: enqueueResult.jobId,
-        statuses: ['succeeded'],
-        timeoutMs: 20000,
-        pollMs: 150,
-      });
-      expect(asyncRecord.status).toBe('succeeded');
-
-      const consumed = await consumeVerificationRecord({
-        apiApp,
-        bearer: learnerAccessToken,
-        token: verificationToken,
-        expectedType: VerificationRecordType.INVITE_MANAGER,
-      });
-      expect(consumed).toBe(true);
-
-      const managerEntity = await dataSource.getRepository(ManagerEntity).findOne({
-        where: { accountId: learnerAccountId },
-      });
-      expect(managerEntity).not.toBeNull();
-    }, 60000);
-
-    it('应覆盖 inviteCoach 的 email 触发闭环', async () => {
-      const timestamp = Date.now();
-      const verificationToken = await createVerificationRecord({
-        apiApp,
-        bearer: managerAccessToken,
-        type: VerificationRecordType.INVITE_COACH,
-        targetAccountId: learnerAccountId,
-        payload: {
-          coachName: `E2E Coach ${timestamp}`,
-          coachLevel: 3,
-          specialty: 'basketball',
-        },
-      });
-
-      await assertVerificationRecordReadable({
-        apiApp,
-        token: verificationToken,
-        expectedType: VerificationRecordType.INVITE_COACH,
-      });
-
-      const dedupKey = `e2e-ic-${timestamp}`;
-      const traceId = `e2e-ic-t-${timestamp}`;
-      const enqueueResult = await queueEmail({
-        apiApp,
-        to: testAccountsConfig.learner.loginEmail,
-        subject: 'Invite Coach Verification',
-        text: `token=${verificationToken}`,
-        dedupKey,
-        traceId,
-        source: 'e2e-invite-coach-flow',
-      });
-
-      expect(enqueueResult.queued).toBe(true);
-      const finalState = await waitJobFinalState({
-        queue: emailQueue,
-        jobId: enqueueResult.jobId,
-        timeoutMs: 20000,
-        pollMs: 150,
-      });
-      expect(finalState.state).toBe('completed');
-
-      const asyncRecord = await waitAsyncTaskRecord({
-        dataSource,
-        queueName: BULLMQ_QUEUES.EMAIL,
-        jobId: enqueueResult.jobId,
-        statuses: ['succeeded'],
-        timeoutMs: 20000,
-        pollMs: 150,
-      });
-      expect(asyncRecord.status).toBe('succeeded');
-
-      const consumed = await consumeVerificationRecord({
-        apiApp,
-        bearer: learnerAccessToken,
-        token: verificationToken,
-        expectedType: VerificationRecordType.INVITE_COACH,
-      });
-      expect(consumed).toBe(true);
-
-      const coachEntity = await dataSource.getRepository(CoachEntity).findOne({
-        where: { accountId: learnerAccountId },
-      });
-      expect(coachEntity).not.toBeNull();
     }, 60000);
   });
 });

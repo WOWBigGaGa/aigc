@@ -108,7 +108,7 @@ export function normalizeVisibleGeographicInput(input: unknown): GeographicInfo 
   if (typeof input !== 'object' || Array.isArray(input)) {
     throw new DomainError(ACCOUNT_ERROR.OPERATION_NOT_SUPPORTED, '地理信息必须是对象或为 null');
   }
-  return input as GeographicInfo;
+  return input;
 }
 
 export function normalizeVisibleGenderInput(input: unknown): Gender {

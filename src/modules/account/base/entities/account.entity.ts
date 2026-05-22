@@ -9,10 +9,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-// import { ThirdPartyAuthEntity } from './third-party-auth.entity'; // 暂时注释掉第三方认证实体导入
 import { UserInfoEntity } from './user-info.entity';
 
-@Entity('base_user_accounts')
+@Entity('base_user_account')
 @Index('uk_login_name', ['loginName'], { unique: true })
 @Index('uk_login_email', ['loginEmail'], { unique: true })
 export class AccountEntity {
@@ -57,7 +56,7 @@ export class AccountEntity {
     type: 'varchar',
     length: 30,
     nullable: true,
-    comment: '身份提示字段，用于加速判断：如 "staff","student","customer" 等',
+    comment: '身份提示字段，用于加速判断当前账号角色：如 "ADMIN","STAFF","GUEST","REGISTRANT"',
   })
   identityHint!: string | null;
 
@@ -67,16 +66,6 @@ export class AccountEntity {
    */
   @OneToOne(() => UserInfoEntity, (userInfo) => userInfo.account)
   userInfo?: UserInfoEntity;
-
-  /**
-   * 第三方登录绑定关联
-   * 一对多关系
-   * 暂时注释掉，因为 ThirdPartyAuthModule 被屏蔽
-   */
-  // @OneToMany(() => ThirdPartyAuthEntity, (thirdPartyAuth) => thirdPartyAuth.account, {
-  //   eager: false,
-  // })
-  // thirdPartyAuths?: ThirdPartyAuthEntity[];
 
   @CreateDateColumn({
     name: 'created_at',

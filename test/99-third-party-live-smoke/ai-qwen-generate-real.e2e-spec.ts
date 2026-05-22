@@ -9,10 +9,8 @@ import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { BullMqWorkerRuntime } from '@src/infrastructure/bullmq/worker.runtime';
 import { AiProviderCallRecordEntity } from '@src/modules/ai-provider-call-record/ai-provider-call-record.entity';
-import {
-  AsyncTaskRecordEntity,
-  type AsyncTaskRecordStatus,
-} from '@src/modules/async-task-record/async-task-record.entity';
+import { AsyncTaskRecordEntity } from '@src/modules/async-task-record/async-task-record.entity';
+import type { AsyncTaskRecordStatus } from '@src/modules/async-task-record/async-task-record.types';
 import { TokenHelper } from '@src/modules/auth/token.helper';
 import { Queue } from 'bullmq';
 import request from 'supertest';
@@ -204,9 +202,9 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
   let workerRuntime: BullMqWorkerRuntime;
   let aiQueue: Queue;
   let dataSource: DataSource;
-  let managerToken: string;
-  let managerAccountId: number;
-  let managerActiveRole: string;
+  let staffPrimaryToken: string;
+  let staffPrimaryAccountId: number;
+  let staffPrimaryActiveRole: string;
 
   beforeAll(async () => {
     if ((process.env.AI_PROVIDER_MODE ?? '').trim().toLowerCase() !== 'remote') {
@@ -226,22 +224,22 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     await workerRuntime.start();
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager'] });
-    managerToken = await login({
+    await seedTestAccounts({ dataSource, includeKeys: ['staffPrimary'] });
+    staffPrimaryToken = await login({
       app: apiApp,
-      loginName: testAccountsConfig.manager.loginName,
-      loginPassword: testAccountsConfig.manager.loginPassword,
+      loginName: testAccountsConfig.staffPrimary.loginName,
+      loginPassword: testAccountsConfig.staffPrimary.loginPassword,
       type: LoginTypeEnum.PASSWORD,
     });
     const tokenHelper = apiApp.get(TokenHelper);
-    const managerPayload = tokenHelper.decodeToken({ token: managerToken });
-    if (!managerPayload?.sub) {
-      throw new Error('无法从 manager token 获取 sub');
+    const staffPrimaryPayload = tokenHelper.decodeToken({ token: staffPrimaryToken });
+    if (!staffPrimaryPayload?.sub) {
+      throw new Error('无法从 staff primary token 获取 sub');
     }
-    managerAccountId = managerPayload.sub;
-    managerActiveRole = String(managerPayload.activeRole ?? '');
-    if (!managerActiveRole) {
-      throw new Error('无法从 manager token 获取 activeRole');
+    staffPrimaryAccountId = staffPrimaryPayload.sub;
+    staffPrimaryActiveRole = String(staffPrimaryPayload.activeRole ?? '');
+    if (!staffPrimaryActiveRole) {
+      throw new Error('无法从 staff primary token 获取 activeRole');
     }
   }, 120000);
 
@@ -264,7 +262,7 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
 
     const enqueue = await queueAiGenerate({
       app: apiApp,
-      token: managerToken,
+      token: staffPrimaryToken,
       provider: 'qwen',
       model,
       prompt,
@@ -306,8 +304,8 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     expect(finalRecord.status).toBe('succeeded');
     expect(finalRecord.bizType).toBe('ai_generation');
     expect(finalRecord.reason).toBe('worker_completed');
-    expect(finalRecord.actorAccountId).toBe(managerAccountId);
-    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+    expect(finalRecord.actorAccountId).toBe(staffPrimaryAccountId);
+    expect(finalRecord.actorActiveRole).toBe(staffPrimaryActiveRole);
     expect(finalRecord.jobId).toBe(dedupKey);
     expect(finalRecord.traceId).toBe(traceId);
 
@@ -350,7 +348,7 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
 
     const firstEnqueue = await queueAiGenerate({
       app: apiApp,
-      token: managerToken,
+      token: staffPrimaryToken,
       provider: 'qwen',
       model,
       prompt: `请仅回复 REAL_QWEN_E2E_DEDUP_FIRST_${now}`,
@@ -363,7 +361,7 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     });
     const secondEnqueue = await queueAiGenerate({
       app: apiApp,
-      token: managerToken,
+      token: staffPrimaryToken,
       provider: 'qwen',
       model,
       prompt: `请仅回复 REAL_QWEN_E2E_DEDUP_SECOND_${now}`,
@@ -408,8 +406,8 @@ REAL_AI_DESCRIBE('真实 Qwen generate 闭环（受控 e2e）', () => {
     expect(finalRecord.reason).toBe('worker_completed');
     expect(finalRecord.bizType).toBe('ai_generation');
     expect(finalRecord.traceId).toBe(firstTraceId);
-    expect(finalRecord.actorAccountId).toBe(managerAccountId);
-    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+    expect(finalRecord.actorAccountId).toBe(staffPrimaryAccountId);
+    expect(finalRecord.actorActiveRole).toBe(staffPrimaryActiveRole);
 
     const recordCount = await countAsyncTaskRecords({
       dataSource,
@@ -426,9 +424,9 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
   let workerRuntime: BullMqWorkerRuntime;
   let aiQueue: Queue;
   let dataSource: DataSource;
-  let managerToken: string;
-  let managerAccountId: number;
-  let managerActiveRole: string;
+  let staffPrimaryToken: string;
+  let staffPrimaryAccountId: number;
+  let staffPrimaryActiveRole: string;
   let originalQwenApiKey: string | undefined;
 
   beforeAll(async () => {
@@ -457,22 +455,22 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
     await workerRuntime.start();
 
     await cleanupTestAccounts(dataSource);
-    await seedTestAccounts({ dataSource, includeKeys: ['manager'] });
-    managerToken = await login({
+    await seedTestAccounts({ dataSource, includeKeys: ['staffPrimary'] });
+    staffPrimaryToken = await login({
       app: apiApp,
-      loginName: testAccountsConfig.manager.loginName,
-      loginPassword: testAccountsConfig.manager.loginPassword,
+      loginName: testAccountsConfig.staffPrimary.loginName,
+      loginPassword: testAccountsConfig.staffPrimary.loginPassword,
       type: LoginTypeEnum.PASSWORD,
     });
     const tokenHelper = apiApp.get(TokenHelper);
-    const managerPayload = tokenHelper.decodeToken({ token: managerToken });
-    if (!managerPayload?.sub) {
-      throw new Error('无法从 manager token 获取 sub');
+    const staffPrimaryPayload = tokenHelper.decodeToken({ token: staffPrimaryToken });
+    if (!staffPrimaryPayload?.sub) {
+      throw new Error('无法从 staff primary token 获取 sub');
     }
-    managerAccountId = managerPayload.sub;
-    managerActiveRole = String(managerPayload.activeRole ?? '');
-    if (!managerActiveRole) {
-      throw new Error('无法从 manager token 获取 activeRole');
+    staffPrimaryAccountId = staffPrimaryPayload.sub;
+    staffPrimaryActiveRole = String(staffPrimaryPayload.activeRole ?? '');
+    if (!staffPrimaryActiveRole) {
+      throw new Error('无法从 staff primary token 获取 activeRole');
     }
   }, 120000);
 
@@ -494,7 +492,7 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
 
     const enqueue = await queueAiGenerate({
       app: apiApp,
-      token: managerToken,
+      token: staffPrimaryToken,
       provider: 'qwen',
       model,
       prompt: `请仅回复 REAL_QWEN_E2E_AUTH_FAIL_${now}`,
@@ -527,8 +525,8 @@ REAL_AI_AUTH_FAIL_DESCRIBE('真实 Qwen generate 鉴权失败分类（受控 e2e
     expect(finalState.state).toBe('failed');
     expect(finalRecord.status).toBe('failed');
     expect(finalRecord.bizType).toBe('ai_generation');
-    expect(finalRecord.actorAccountId).toBe(managerAccountId);
-    expect(finalRecord.actorActiveRole).toBe(managerActiveRole);
+    expect(finalRecord.actorAccountId).toBe(staffPrimaryAccountId);
+    expect(finalRecord.actorActiveRole).toBe(staffPrimaryActiveRole);
     expect(finalRecord.traceId).toBe(traceId);
     expect(finalRecord.reason ?? '').toContain('ai_provider_auth_failed');
     expect(finalState.failedReason ?? '').toContain('ai_provider_auth_failed');

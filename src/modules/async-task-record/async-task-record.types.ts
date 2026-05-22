@@ -1,7 +1,20 @@
 // src/modules/async-task-record/async-task-record.types.ts
-import type { AsyncTaskRecordSource, AsyncTaskRecordStatus } from './async-task-record.entity';
 
-export type { AsyncTaskRecordSource, AsyncTaskRecordStatus };
+import { RECORD_SOURCES, type RecordSource } from '@app-types/common/record-source.types';
+
+export const ASYNC_TASK_RECORD_SOURCES = RECORD_SOURCES;
+
+export type AsyncTaskRecordSource = RecordSource;
+
+export const ASYNC_TASK_RECORD_STATUSES = [
+  'queued',
+  'processing',
+  'succeeded',
+  'failed',
+  'cancelled',
+] as const;
+
+export type AsyncTaskRecordStatus = (typeof ASYNC_TASK_RECORD_STATUSES)[number];
 
 export interface AsyncTaskRecordView {
   readonly id: number;

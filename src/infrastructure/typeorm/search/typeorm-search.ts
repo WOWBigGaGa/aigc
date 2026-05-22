@@ -8,9 +8,9 @@ import {
   whitelistSorts,
 } from '@core/pagination/pagination.policy';
 import type { PaginationParams, SortParam } from '@core/pagination/pagination.types';
-import type { ISearchEngine } from '@core/search/search.ports';
+import type { ISearchEngine } from '@core/search/search.contract';
 import type { SearchOptions, SearchParams, SearchResult } from '@core/search/search.types';
-import { ensureTieBreaker } from '@core/sort/sort.ports';
+import { ensureTieBreaker } from '@core/sort/sort.contract';
 import { Brackets, type ObjectLiteral, type SelectQueryBuilder } from 'typeorm';
 
 /**

@@ -104,9 +104,9 @@ function applyOrderBy(qb: SelectQueryBuilder<unknown>) {
 
 ## 近期改动与通用建议
 
-### Learner 排序安全增强（示例）
-- 在 `LearnerService.findPaginated` 中不再使用运行时字符串拼接 `orderBy(\`alias.${sortBy}\`, sortOrder)`。
-- 改为通过域专用解析器 `LEARNER_SORT_RESOLVER` 将业务字段解析为安全列名，并在 `OFFSET` 模式下补充稳定副键 `id`（方向与主排序一致），避免跨页顺序漂移。
+### 实体排序安全增强（示例）
+- 在业务查询服务中不再使用运行时字符串拼接 `orderBy(\`alias.${sortBy}\`, sortOrder)`。
+- 改为通过域专用解析器将业务字段解析为安全列名，并在 `OFFSET` 模式下补充稳定副键 `id`（方向与主排序一致），避免跨页顺序漂移。
 - `CURSOR` 模式已统一接入 `PaginationService`，保持排序与游标键一致性（`primary + tieBreaker`）。
 
 > 以上实践同样适用于其他实体，建议按下述通用指南实现。

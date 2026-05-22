@@ -4,7 +4,7 @@
 
 - 整个 time normalize 是我的一次项目（前后端数据库等）所有时间时区处理的纯函数归一化尝试，并不是强制要求，如果用到一定要做充分测试
 - 在迁移阶段，time normalize 是语义防线，DTO 层不是唯一规则强制入口
-- 新旧链路可以共存：旧链路保持旧行为，新链路通过 normalize 获得新规则保障
+- 迁移期间可以按入口逐步接入：未接入入口保持既有行为，已接入入口通过 normalize 获得稳定时间规则保障
 - format 层只接收 normalize 语义载体，不接收裸 `Date`，并支持跨拷贝传递
 - 语义载体是可序列化结构：`{ normalizedKind, semantic, epochMilliseconds }`
 - format 层校验目标是防误用，不承担不可信输入鉴权职责

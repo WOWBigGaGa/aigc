@@ -9,7 +9,12 @@ import { ApiModule } from '../../src/bootstraps/api/api.module';
 import { FieldEncryptionService } from '../../src/infrastructure/field-encryption/field-encryption.service';
 import { AccountEntity } from '../../src/modules/account/base/entities/account.entity';
 import { UserInfoEntity } from '../../src/modules/account/base/entities/user-info.entity';
-import { AccountStatus } from '@app-types/models/account.types';
+import {
+  AccountStatus,
+  AudienceTypeEnum,
+  IdentityTypeEnum,
+  LoginTypeEnum,
+} from '@app-types/models/account.types';
 import { RegisterTypeEnum } from '@app-types/services/register.types';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
@@ -28,18 +33,11 @@ describe('Register (e2e)', () => {
       nickname: '测试用户',
       type: RegisterTypeEnum.REGISTRANT,
     },
-    validStudent: {
-      loginName: 'teststudent',
-      loginEmail: 'teststudent@example.com',
-      loginPassword: 'StudentPass123!',
-      nickname: '测试学生',
-      type: RegisterTypeEnum.STUDENT,
-    },
     validStaff: {
       loginName: 'teststaff',
       loginEmail: 'teststaff@example.com',
       loginPassword: 'StaffPass123!',
-      nickname: '测试教职工',
+      nickname: '测试工作人员',
       type: RegisterTypeEnum.STAFF,
     },
     duplicateLoginName: {
@@ -118,7 +116,7 @@ describe('Register (e2e)', () => {
       loginEmail: 'invalidtype@example.com',
       loginPassword: 'TestPass123!',
       nickname: '无效类型用户',
-      type: 'INVALID_TYPE' as any, // 无效的注册类型
+      type: 'INVALID_TYPE', // 无效的注册类型
     },
   };
 
@@ -206,7 +204,7 @@ describe('Register (e2e)', () => {
       if (whereConditions.length > 0) {
         const accounts = await accountRepository.find({
           where: whereConditions,
-          select: ['id'],
+          select: { id: true },
         });
 
         const accountIds = accounts.map((account) => account.id);
@@ -217,7 +215,7 @@ describe('Register (e2e)', () => {
           if (nicknames.length > 0) {
             const userInfosByNickname = await userInfoRepository.find({
               where: { nickname: In(nicknames) },
-              select: ['accountId'],
+              select: { accountId: true },
             });
             userInfosToDelete.push(...userInfosByNickname.map((ui) => ui.accountId));
           }
@@ -246,7 +244,7 @@ describe('Register (e2e)', () => {
   /**
    * 执行 GraphQL 注册请求
    */
-  const performRegister = async (input: any) => {
+  const performRegister = async (input: Record<string, unknown>) => {
     const response = await request(app.getHttpServer())
       .post('/graphql')
       .send({
@@ -265,6 +263,34 @@ describe('Register (e2e)', () => {
       });
 
     return response;
+  };
+
+  const performLogin = async (loginName: string, loginPassword: string) => {
+    return await request(app.getHttpServer())
+      .post('/graphql')
+      .send({
+        query: `
+          mutation Login($input: AuthLoginInput!) {
+            login(input: $input) {
+              accessToken
+              refreshToken
+              accountId
+              role
+              userInfo {
+                accessGroup
+              }
+            }
+          }
+        `,
+        variables: {
+          input: {
+            loginName,
+            loginPassword,
+            type: LoginTypeEnum.PASSWORD,
+            audience: AudienceTypeEnum.DESKTOP,
+          },
+        },
+      });
   };
 
   describe('注册成功场景', () => {
@@ -291,6 +317,43 @@ describe('Register (e2e)', () => {
       expect(createdAccount?.loginName).toBe(testRegisterData.validUser.loginName);
       expect(createdAccount?.loginEmail).toBe(testRegisterData.validUser.loginEmail);
       expect(createdAccount?.status).toBe(AccountStatus.ACTIVE);
+    });
+
+    it('应该支持工作人员注册后登录', async () => {
+      const registerResponse = await performRegister(testRegisterData.validStaff);
+
+      expect(registerResponse.status).toBe(200);
+      const { data } = registerResponse.body;
+      expect(data?.register.success).toBe(true);
+      expect(data?.register.accountId).toBeDefined();
+
+      const accountRepository = dataSource.getRepository(AccountEntity);
+      const createdAccount = await accountRepository.findOne({
+        where: { id: data?.register.accountId },
+      });
+
+      expect(createdAccount).toBeDefined();
+      expect(createdAccount?.identityHint).toBe(IdentityTypeEnum.STAFF);
+      expect(createdAccount?.status).toBe(AccountStatus.ACTIVE);
+
+      const userInfoRepository = dataSource.getRepository(UserInfoEntity);
+      const userInfo = await userInfoRepository.findOne({
+        where: { accountId: data?.register.accountId },
+      });
+
+      expect(userInfo?.accessGroup).toContain(IdentityTypeEnum.STAFF);
+      expect(userInfo?.metaDigest).toContain(IdentityTypeEnum.STAFF);
+
+      const loginResponse = await performLogin(
+        testRegisterData.validStaff.loginName,
+        testRegisterData.validStaff.loginPassword,
+      );
+      expect(loginResponse.status).toBe(200);
+      expect(loginResponse.body.data?.login.accountId).toBe(data?.register.accountId);
+      expect(loginResponse.body.data?.login.accessToken).toBeDefined();
+      expect(loginResponse.body.data?.login.refreshToken).toBeDefined();
+      expect(loginResponse.body.data?.login.role).toBe(IdentityTypeEnum.STAFF);
+      expect(loginResponse.body.data?.login.userInfo.accessGroup).toContain(IdentityTypeEnum.STAFF);
     });
 
     /**

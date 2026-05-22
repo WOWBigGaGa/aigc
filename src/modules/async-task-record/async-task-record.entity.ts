@@ -8,29 +8,14 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  ASYNC_TASK_RECORD_SOURCES,
+  ASYNC_TASK_RECORD_STATUSES,
+  type AsyncTaskRecordSource,
+  type AsyncTaskRecordStatus,
+} from './async-task-record.types';
 
-export const ASYNC_TASK_RECORD_SOURCES = [
-  'user_action',
-  'admin_action',
-  'system',
-  'cron',
-  'domain_event',
-  'webhook',
-] as const;
-
-export type AsyncTaskRecordSource = (typeof ASYNC_TASK_RECORD_SOURCES)[number];
-
-export const ASYNC_TASK_RECORD_STATUSES = [
-  'queued',
-  'processing',
-  'succeeded',
-  'failed',
-  'cancelled',
-] as const;
-
-export type AsyncTaskRecordStatus = (typeof ASYNC_TASK_RECORD_STATUSES)[number];
-
-@Entity('base_async_task_records')
+@Entity('base_async_task_record')
 @Index('uk_queue_name_job_id', ['queueName', 'jobId'], { unique: true })
 @Index('idx_trace_id', ['traceId'])
 @Index('idx_actor_account_id', ['actorAccountId'])

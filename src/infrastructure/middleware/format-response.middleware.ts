@@ -124,7 +124,7 @@ export class FormatResponseMiddleware implements NestMiddleware {
       errorCode = errorParts[0].trim();
       errorMessage = errorParts[1].trim();
       const showTypeValue = parseInt(errorParts[2].trim(), 10);
-      showType = Number.isNaN(showTypeValue) ? ShowType.ERROR_MESSAGE : (showTypeValue as ShowType);
+      showType = Number.isNaN(showTypeValue) ? ShowType.ERROR_MESSAGE : showTypeValue;
     } else if (errorParts.length === 2) {
       // 错误信息被分隔成2段，比如 "401:未登录"
       errorCode = errorParts[0].trim();

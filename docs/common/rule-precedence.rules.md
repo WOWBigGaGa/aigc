@@ -37,13 +37,20 @@ force.
    `docs/common/type.rules.md` decides where types and enums live, but does not redefine adapter,
    usecase, queryservice, or module responsibilities.
 
-5. Supplementary rules are additive by default.
+5. Boundary contract rules govern naming and contract-vs-port terminology.
+   `docs/common/boundary-contract.rules.md` decides `*.contract.ts` naming, rejects
+   `*.port.ts` / `*.ports.ts` boundary files, and states that boundary contract is not a
+   standalone layer.
+   It does not override which layer owns a capability; ownership still follows the layer-boundary
+   rules above.
+
+6. Supplementary rules are additive by default.
    Files such as `docs/common/modules.extra.rules.md` add recommended practices unless they explicitly
    state that they override another rule.
    Supplementary rules do not override layer-boundary rules unless this precedence section explicitly
    says so.
 
-6. When adapter, usecase, and queryservice concerns intersect, resolve precedence in this order:
+7. When adapter, usecase, and queryservice concerns intersect, resolve precedence in this order:
    layer boundary -> scoped topic-specific rule -> repository-specific convention
 
 ## Rule Resolution Reporting

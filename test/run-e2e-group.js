@@ -27,7 +27,9 @@ const parseNeeds = (needs) =>
     .join(',');
 
 const parseNeedsCsv = (raw) =>
-  parseCsv(raw).map((entry) => entry.toLowerCase()).filter((entry) => KNOWN_NEEDS.includes(entry));
+  parseCsv(raw)
+    .map((entry) => entry.toLowerCase())
+    .filter((entry) => KNOWN_NEEDS.includes(entry));
 
 /**
  * 按分组逐个文件执行 E2E，避免单进程加载全部 schema 引发冲突

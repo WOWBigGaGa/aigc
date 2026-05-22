@@ -81,7 +81,7 @@ export class RolesGuard implements CanActivate {
     requiredRoles: string[] | undefined,
   ): JwtPayload {
     const request = this.getRequest(context);
-    const user = request.user as JwtPayload | undefined;
+    const user = request.user;
     if (!user) {
       throw new DomainError(JWT_ERROR.AUTHENTICATION_FAILED, '用户未登录', {
         requiredRoles: requiredRoles || [],

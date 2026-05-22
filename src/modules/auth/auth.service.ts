@@ -1,10 +1,10 @@
 // src/modules/auth/auth.service.ts
 
 import { TokenHelper } from './token.helper';
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { JwtPayload } from '@app-types/jwt.types';
 import { PinoLogger } from 'nestjs-pino';
+import { AUTH_TOKENS } from './auth.tokens';
 
 /**
  * 认证服务 - 提供认证相关的技术实现
@@ -13,7 +13,8 @@ import { PinoLogger } from 'nestjs-pino';
 export class AuthService {
   constructor(
     private readonly tokenHelper: TokenHelper,
-    private readonly configService: ConfigService,
+    @Inject(AUTH_TOKENS.JWT_AUDIENCE)
+    private readonly jwtAudience: string,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthService.name);
@@ -25,8 +26,7 @@ export class AuthService {
    * @returns 是否有效
    */
   validateAudience(audience: string): boolean {
-    const configAudience = this.configService.get<string>('jwt.audience');
-    return this.tokenHelper.validateAudience(audience, configAudience!);
+    return this.tokenHelper.validateAudience(audience, this.jwtAudience);
   }
 
   /**

@@ -1,17 +1,18 @@
 import { DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { CanActivate, ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   QM_WORKER_ENTRY_POLICY_KEY,
   type QmWorkerEntryPolicy,
 } from '@src/adapters/api/graphql/decorators/qm-worker-entry.decorator';
+import { QM_WORKER_ENTRY_OPTIONS, type QmWorkerEntryOptions } from './qm-worker-entry.options';
 
 @Injectable()
 export class QmWorkerEntryGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly configService: ConfigService,
+    @Inject(QM_WORKER_ENTRY_OPTIONS)
+    private readonly options: QmWorkerEntryOptions,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -31,7 +32,6 @@ export class QmWorkerEntryGuard implements CanActivate {
   }
 
   private isEnabled(policy: QmWorkerEntryPolicy): boolean {
-    const configValue = this.configService.get<boolean | undefined>(policy.enabledConfigKey);
-    return configValue === true;
+    return this.options[policy.enabledFlag] === true;
   }
 }

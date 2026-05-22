@@ -1,14 +1,13 @@
-// 文件位置: /var/www/backend/src/modules/verification-record/queries/consumable.query.service.ts
+// src/modules/verification-record/queries/consumable.query.service.ts
 import { AudienceTypeEnum } from '@app-types/models/account.types';
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 import { Injectable } from '@nestjs/common';
-import {
-  VerificationReadService,
-  VerificationRecordView,
-} from '../services/verification-read.service';
+import type { VerificationRecordView } from '../verification-record.types';
+import { VerificationReadQueryService } from './verification-read.query.service';
 
 @Injectable()
 export class ConsumableQueryService {
-  constructor(private readonly verificationReadService: VerificationReadService) {}
+  constructor(private readonly verificationReadQueryService: VerificationReadQueryService) {}
 
   /**
    * 查找可消费的验证记录
@@ -22,7 +21,14 @@ export class ConsumableQueryService {
     audience?: AudienceTypeEnum | null,
     email?: string | null,
     phone?: string | null,
+    transactionContext?: PersistenceTransactionContext,
   ): Promise<VerificationRecordView> {
-    return this.verificationReadService.findConsumableRecord(token, audience, email, phone);
+    return this.verificationReadQueryService.findConsumableRecord(
+      token,
+      audience,
+      email,
+      phone,
+      transactionContext,
+    );
   }
 }

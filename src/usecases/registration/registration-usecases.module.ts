@@ -1,7 +1,6 @@
 // src/usecases/registration/registration-usecases.module.ts
 import { AccountInstallerModule } from '@modules/account/account-installer.module';
 import { PasswordModule } from '@modules/common/password/password.module';
-import { RegisterModule } from '@modules/register/register.module';
 import { ThirdPartyAuthModule } from '@modules/third-party-auth/third-party-auth.module';
 import { Module } from '@nestjs/common';
 import { VerificationRecordModule } from '@src/modules/verification-record/verification-record.module';
@@ -10,13 +9,7 @@ import { RegisterWithThirdPartyUsecase } from '@src/usecases/registration/regist
 import { WeappRegisterUsecase } from '@src/usecases/registration/weapp-register.usecase';
 
 @Module({
-  imports: [
-    RegisterModule,
-    VerificationRecordModule,
-    AccountInstallerModule,
-    PasswordModule,
-    ThirdPartyAuthModule,
-  ],
+  imports: [VerificationRecordModule, AccountInstallerModule, PasswordModule, ThirdPartyAuthModule],
   providers: [RegisterWithEmailUsecase, RegisterWithThirdPartyUsecase, WeappRegisterUsecase],
   exports: [RegisterWithEmailUsecase, RegisterWithThirdPartyUsecase, WeappRegisterUsecase],
 })

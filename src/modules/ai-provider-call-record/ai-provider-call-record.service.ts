@@ -1,11 +1,14 @@
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
+import { DomainError, THIRDPARTY_ERROR } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
 import { QueryFailedError, Repository, type EntityManager } from 'typeorm';
-import {
-  AiProviderCallRecordEntity,
-  type AiProviderCallRecordProviderStatus,
-  type AiProviderCallRecordSource,
-} from './ai-provider-call-record.entity';
+import { AiProviderCallRecordEntity } from './ai-provider-call-record.entity';
+import type {
+  AiProviderCallRecordProviderStatus,
+  AiProviderCallRecordSource,
+} from './ai-provider-call-record.types';
 
 export interface CreateAiProviderCallRecordInput {
   readonly asyncTaskRecordId?: number | null;
@@ -92,12 +95,18 @@ export class AiProviderCallRecordService {
 
   async createRecord(input: {
     readonly data: CreateAiProviderCallRecordInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AiProviderCallRecordView> {
+    const manager = input.transactionContext
+      ? getTypeOrmEntityManager(input.transactionContext)
+      : undefined;
     let attempt = 0;
     while (attempt < AiProviderCallRecordService.CREATE_RECORD_MAX_RETRY) {
       try {
-        const saved = await this.createRecordWithAllocatedSeq(input);
+        const saved = await this.createRecordWithAllocatedSeq({
+          data: input.data,
+          manager,
+        });
         return this.toView(saved);
       } catch (error) {
         attempt += 1;
@@ -110,15 +119,27 @@ export class AiProviderCallRecordService {
         throw error;
       }
     }
-    throw new Error('ai_provider_call_record_create_retry_exhausted');
+    throw new DomainError(
+      THIRDPARTY_ERROR.PROVIDER_API_ERROR,
+      'ai_provider_call_record_create_retry_exhausted',
+      {
+        traceId: input.data.traceId,
+        provider: input.data.provider,
+        model: input.data.model,
+        maxRetry: AiProviderCallRecordService.CREATE_RECORD_MAX_RETRY,
+      },
+    );
   }
 
   async updateRecordById(input: {
     readonly where: { readonly id: number };
     readonly patch: UpdateAiProviderCallRecordPatch;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AiProviderCallRecordView | null> {
-    const repository = this.resolveRepository(input.manager);
+    const manager = input.transactionContext
+      ? getTypeOrmEntityManager(input.transactionContext)
+      : undefined;
+    const repository = this.resolveRepository(manager);
     const record = await repository.findOne({ where: { id: input.where.id } });
     if (!record) {
       return null;
@@ -277,7 +298,7 @@ export class AiProviderCallRecordService {
     return (
       message.includes('uk_ai_provider_call_trace_seq') ||
       message.includes('uq_ai_provider_call_trace_seq') ||
-      message.includes('ai_provider_call_records.trace_id_call_seq')
+      message.includes('ai_provider_call_record.trace_id_call_seq')
     );
   }
 

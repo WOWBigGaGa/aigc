@@ -1,22 +1,20 @@
 // src/modules/async-task-record/async-task-record.service.ts
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, FindOptionsWhere, In, IsNull, QueryFailedError, Repository } from 'typeorm';
-import { AsyncTaskRecordEntity, AsyncTaskRecordStatus } from './async-task-record.entity';
-import {
+import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
+import { QueryFailedError, Repository } from 'typeorm';
+import { AsyncTaskRecordEntity } from './async-task-record.entity';
+import type {
   AsyncTaskRecordView,
   CreateAsyncTaskRecordInput,
   FindAsyncTaskRecordByQueueJobInput,
-  ListAsyncTaskRecordsByBizTargetInput,
-  ListAsyncTaskRecordsByTraceInput,
   RecordAsyncTaskEnqueuedInput,
   RecordAsyncTaskEnqueueFailedInput,
   RecordAsyncTaskFinishedInput,
   RecordAsyncTaskStartedInput,
   UpdateAsyncTaskRecordStatusInput,
 } from './async-task-record.types';
-
-export type AsyncTaskRecordTransactionManager = EntityManager;
 
 @Injectable()
 export class AsyncTaskRecordService {
@@ -25,91 +23,20 @@ export class AsyncTaskRecordService {
     private readonly asyncTaskRecordRepository: Repository<AsyncTaskRecordEntity>,
   ) {}
 
-  async findById(input: {
-    readonly id: number;
-    readonly manager?: EntityManager;
-  }): Promise<AsyncTaskRecordView | null> {
-    const repository = this.getRepository(input.manager);
-    const entity = await repository.findOne({ where: { id: input.id } });
-    return entity ? this.toView(entity) : null;
-  }
-
-  async findByQueueJob(input: {
+  private async findByQueueJob(input: {
     readonly where: FindAsyncTaskRecordByQueueJobInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView | null> {
-    const repository = this.getRepository(input.manager);
+    const repository = this.getRepository(input.transactionContext);
     const entity = await repository.findOne({ where: input.where });
     return entity ? this.toView(entity) : null;
   }
 
-  async listByTraceId(input: {
-    readonly where: ListAsyncTaskRecordsByTraceInput;
-    readonly manager?: EntityManager;
-  }): Promise<AsyncTaskRecordView[]> {
-    const repository = this.getRepository(input.manager);
-    const where: FindOptionsWhere<AsyncTaskRecordEntity> = {
-      traceId: input.where.traceId,
-    };
-    if (input.where.queueName !== undefined) {
-      where.queueName = input.where.queueName;
-    }
-    if (input.where.bizTypes && input.where.bizTypes.length > 0) {
-      where.bizType = In([...input.where.bizTypes]);
-    }
-    const entities = await repository.find({
-      where,
-      order: { id: 'DESC' },
-      take: input.where.limit,
-    });
-    return entities.map((entity) => this.toView(entity));
-  }
-
-  async listByBizTarget(input: {
-    readonly where: ListAsyncTaskRecordsByBizTargetInput;
-    readonly manager?: EntityManager;
-  }): Promise<AsyncTaskRecordView[]> {
-    const repository = this.getRepository(input.manager);
-    const where: FindOptionsWhere<AsyncTaskRecordEntity> = {
-      bizType: input.where.bizType,
-      bizKey: input.where.bizKey,
-    };
-    if (input.where.queueName !== undefined) {
-      where.queueName = input.where.queueName;
-    }
-
-    if (input.where.bizSubKey !== undefined) {
-      where.bizSubKey = input.where.bizSubKey === null ? IsNull() : input.where.bizSubKey;
-    }
-
-    if (input.where.statuses && input.where.statuses.length > 0) {
-      where.status = In(input.where.statuses as AsyncTaskRecordStatus[]);
-    }
-
-    const entities = await repository.find({
-      where,
-      order: { id: 'DESC' },
-      take: input.where.limit,
-    });
-    return entities.map((entity) => this.toView(entity));
-  }
-
-  async countByStatus(input: {
-    readonly statuses: ReadonlyArray<AsyncTaskRecordStatus>;
-    readonly manager?: EntityManager;
-  }): Promise<number> {
-    const repository = this.getRepository(input.manager);
-    if (input.statuses.length === 0) {
-      return 0;
-    }
-    return await repository.count({ where: { status: In([...input.statuses]) } });
-  }
-
   async createRecord(input: {
     readonly data: CreateAsyncTaskRecordInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
-    const repository = this.getRepository(input.manager);
+    const repository = this.getRepository(input.transactionContext);
     const entity = repository.create({
       queueName: input.data.queueName,
       jobName: input.data.jobName,
@@ -137,7 +64,7 @@ export class AsyncTaskRecordService {
 
   async createRecordIfAbsent(input: {
     readonly data: CreateAsyncTaskRecordInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
     try {
       return await this.createRecord(input);
@@ -150,7 +77,7 @@ export class AsyncTaskRecordService {
           queueName: input.data.queueName,
           jobId: input.data.jobId,
         },
-        manager: input.manager,
+        transactionContext: input.transactionContext,
       });
       if (existing) {
         return existing;
@@ -161,7 +88,7 @@ export class AsyncTaskRecordService {
 
   async recordEnqueued(input: {
     readonly data: RecordAsyncTaskEnqueuedInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
     const occurredAt = input.data.occurredAt ?? input.data.enqueuedAt ?? new Date();
     const enqueuedAt = input.data.enqueuedAt ?? occurredAt;
@@ -185,13 +112,13 @@ export class AsyncTaskRecordService {
         maxAttempts: input.data.maxAttempts,
         enqueuedAt,
       },
-      manager: input.manager,
+      transactionContext: input.transactionContext,
     });
   }
 
   async recordEnqueueFailed(input: {
     readonly data: RecordAsyncTaskEnqueueFailedInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
     const occurredAt = input.data.occurredAt ?? new Date();
     const normalizedInputJobId = this.normalizeProvidedJobId(input.data.jobId);
@@ -223,7 +150,7 @@ export class AsyncTaskRecordService {
     try {
       return await this.createRecord({
         data: buildCreateData(resolvedJobId),
-        manager: input.manager,
+        transactionContext: input.transactionContext,
       });
     } catch (error: unknown) {
       if (!this.isUniqueConstraintViolation(error)) {
@@ -239,20 +166,20 @@ export class AsyncTaskRecordService {
       });
       return await this.createRecord({
         data: buildCreateData(fallbackJobId),
-        manager: input.manager,
+        transactionContext: input.transactionContext,
       });
     }
   }
 
   async recordStarted(input: {
     readonly data: RecordAsyncTaskStartedInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
     const startedAt = input.data.startedAt ?? new Date();
     const occurredAt = input.data.occurredAt ?? startedAt;
     const existing = await this.findByQueueJob({
       where: { queueName: input.data.queueName, jobId: input.data.jobId },
-      manager: input.manager,
+      transactionContext: input.transactionContext,
     });
     const attemptCount = input.data.attemptCount ?? Math.max((existing?.attemptCount ?? 0) + 1, 1);
 
@@ -266,7 +193,7 @@ export class AsyncTaskRecordService {
           attemptCount,
           reason: input.data.reason,
         },
-        manager: input.manager,
+        transactionContext: input.transactionContext,
       });
       if (updated) {
         return updated;
@@ -294,19 +221,92 @@ export class AsyncTaskRecordService {
         enqueuedAt: input.data.enqueuedAt ?? startedAt,
         startedAt,
       },
-      manager: input.manager,
+      transactionContext: input.transactionContext,
     });
+  }
+
+  async recordStartedIfAbsent(input: {
+    readonly data: RecordAsyncTaskStartedInput;
+    readonly transactionContext?: PersistenceTransactionContext;
+  }): Promise<{
+    readonly record: AsyncTaskRecordView;
+    readonly created: boolean;
+  }> {
+    const existing = await this.findByQueueJob({
+      where: {
+        queueName: input.data.queueName,
+        jobId: input.data.jobId,
+      },
+      transactionContext: input.transactionContext,
+    });
+    if (existing) {
+      return {
+        record: existing,
+        created: false,
+      };
+    }
+
+    const startedAt = input.data.startedAt ?? new Date();
+    const occurredAt = input.data.occurredAt ?? startedAt;
+
+    try {
+      const record = await this.createRecord({
+        data: {
+          queueName: input.data.queueName,
+          jobName: input.data.jobName,
+          jobId: input.data.jobId,
+          traceId: input.data.traceId,
+          actorAccountId: input.data.actorAccountId,
+          actorActiveRole: input.data.actorActiveRole,
+          bizType: input.data.bizType,
+          bizKey: input.data.bizKey,
+          bizSubKey: input.data.bizSubKey,
+          source: input.data.source,
+          reason: input.data.reason,
+          occurredAt,
+          dedupKey: input.data.dedupKey,
+          status: 'processing',
+          attemptCount: input.data.attemptCount ?? 1,
+          maxAttempts: input.data.maxAttempts,
+          enqueuedAt: input.data.enqueuedAt ?? startedAt,
+          startedAt,
+        },
+        transactionContext: input.transactionContext,
+      });
+      return {
+        record,
+        created: true,
+      };
+    } catch (error: unknown) {
+      if (!this.isUniqueConstraintViolation(error)) {
+        throw error;
+      }
+      const duplicated = await this.findByQueueJob({
+        where: {
+          queueName: input.data.queueName,
+          jobId: input.data.jobId,
+        },
+        transactionContext: input.transactionContext,
+      });
+      if (!duplicated) {
+        throw error;
+      }
+      return {
+        record: duplicated,
+        created: false,
+      };
+    }
   }
 
   async recordFinished(input: {
     readonly data: RecordAsyncTaskFinishedInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView> {
     const finishedAt = input.data.finishedAt ?? new Date();
     const occurredAt = input.data.occurredAt ?? finishedAt;
     const existing = await this.findByQueueJob({
       where: { queueName: input.data.queueName, jobId: input.data.jobId },
-      manager: input.manager,
+      transactionContext: input.transactionContext,
     });
     const attemptCount = input.data.attemptCount ?? existing?.attemptCount ?? 1;
 
@@ -320,7 +320,7 @@ export class AsyncTaskRecordService {
           attemptCount,
           reason: input.data.reason,
         },
-        manager: input.manager,
+        transactionContext: input.transactionContext,
       });
       if (updated) {
         return updated;
@@ -349,16 +349,16 @@ export class AsyncTaskRecordService {
         startedAt: input.data.startedAt ?? null,
         finishedAt,
       },
-      manager: input.manager,
+      transactionContext: input.transactionContext,
     });
   }
 
   async updateStatusByQueueJob(input: {
     readonly where: FindAsyncTaskRecordByQueueJobInput;
     readonly patch: UpdateAsyncTaskRecordStatusInput;
-    readonly manager?: EntityManager;
+    readonly transactionContext?: PersistenceTransactionContext;
   }): Promise<AsyncTaskRecordView | null> {
-    const repository = this.getRepository(input.manager);
+    const repository = this.getRepository(input.transactionContext);
     const entity = await repository.findOne({ where: input.where });
     if (!entity) {
       return null;
@@ -385,11 +385,10 @@ export class AsyncTaskRecordService {
     return this.toView(saved);
   }
 
-  async runTransaction<T>(callback: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return await this.asyncTaskRecordRepository.manager.transaction(callback);
-  }
-
-  getRepository(manager?: EntityManager): Repository<AsyncTaskRecordEntity> {
+  private getRepository(
+    transactionContext?: PersistenceTransactionContext,
+  ): Repository<AsyncTaskRecordEntity> {
+    const manager = transactionContext ? getTypeOrmEntityManager(transactionContext) : undefined;
     return manager ? manager.getRepository(AsyncTaskRecordEntity) : this.asyncTaskRecordRepository;
   }
 

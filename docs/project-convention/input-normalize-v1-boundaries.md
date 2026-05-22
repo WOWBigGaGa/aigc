@@ -9,7 +9,7 @@ Source of truth: This file defines input normalize boundaries; code examples els
 
 - 整个 input normalize 是一次通用输入收敛尝试，不是强制一次性替换；接入后要配套测试
 - 在迁移阶段，normalize 是语义防线，DTO 层不是唯一规则强制入口
-- 新旧链路可以共存：旧链路保持旧行为，新链路通过 normalize 获得稳定输入契约
+- 迁移期间可以按入口逐步接入：未接入入口保持既有行为，已接入入口通过 normalize 获得稳定输入契约
 
 ## 1. `normalizeRequiredText(input: unknown)`
 

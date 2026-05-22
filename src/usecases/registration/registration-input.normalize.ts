@@ -123,7 +123,7 @@ export function normalizeWeappRegisterParams(
   });
   const normalizedAudience = normalizeEnumValue<AudienceTypeEnum>(
     input.audience,
-    Object.values(AudienceTypeEnum) as AudienceTypeEnum[],
+    Object.values(AudienceTypeEnum),
     { fieldName: '客户端类型' },
   );
 

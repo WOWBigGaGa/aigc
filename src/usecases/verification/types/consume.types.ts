@@ -1,11 +1,9 @@
 // src/usecases/verification/types/consume.types.ts
 
 import { AudienceTypeEnum } from '@app-types/models/account.types';
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 import { VerificationRecordType } from '@app-types/models/verification-record.types';
-import { VerificationRecordView } from '@src/modules/verification-record/services/verification-read.service';
-import type { VerificationRecordTransactionManager } from '@src/modules/verification-record/verification-record.service';
-import { InviteCoachHandlerResult } from '@src/usecases/verification/coach/invite-coach-result.types';
-import { InviteManagerHandlerResult } from '@src/usecases/verification/manager/invite-manager-result.types';
+import type { VerificationRecordView } from '@src/modules/verification-record/verification-record.types';
 import { PasswordResetHandlerResult } from '@src/usecases/verification/password/reset-password-result.types';
 
 /**
@@ -32,8 +30,8 @@ export interface ConsumeVerificationFlowParams {
   email?: string;
   /** 手机号码（可选，用于上下文匹配） */
   phone?: string;
-  /** 可选的事务管理器 */
-  manager?: VerificationRecordTransactionManager;
+  /** 可选的事务上下文 */
+  transactionContext?: PersistenceTransactionContext;
   /** 密码重置载荷（仅用于密码重置类型） */
   resetPassword?: ResetPasswordPayload;
 }
@@ -46,8 +44,8 @@ export interface VerificationFlowContext {
   recordView: VerificationRecordView;
   /** 消费者账号 ID */
   consumedByAccountId?: number;
-  /** 事务管理器 */
-  manager: VerificationRecordTransactionManager;
+  /** 事务上下文 */
+  transactionContext: PersistenceTransactionContext;
   /** 密码重置载荷（仅用于密码重置类型） */
   resetPassword?: ResetPasswordPayload;
 }
@@ -81,20 +79,6 @@ export interface VerificationFlowContext {
 // }
 
 // /**
-//  * 邀请接受结果
-//  */
-// export interface InviteAcceptResult {
-//   /** 验证记录视图 */
-//   record: VerificationRecordView;
-//   /** 接受邀请的账号 ID */
-//   accountId: number;
-//   /** 邀请类型 */
-//   inviteType: 'coach' | 'manager' | 'learner';
-//   /** 关联的组织或课程 ID */
-//   relatedId: number;
-// }
-
-// /**
 //  * 短信验证结果
 //  */
 // export interface SmsVerificationResult {
@@ -124,10 +108,7 @@ export interface VerificationFlowContext {
  * 验证流程结果联合类型
  * 支持多种验证流程的结果类型
  */
-export type VerificationFlowResult =
-  | PasswordResetHandlerResult
-  | InviteCoachHandlerResult
-  | InviteManagerHandlerResult;
+export type VerificationFlowResult = PasswordResetHandlerResult;
 // TODO: 后续可扩展更多类型
 // export type VerificationFlowResult =
 //   | EmailVerificationResult

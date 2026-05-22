@@ -9,6 +9,7 @@ import { ExecuteLoginFlowUsecase } from '@src/usecases/auth/execute-login-flow.u
 import { LoginByAccountIdUsecase } from '@src/usecases/auth/login-by-account-id.usecase';
 import { LoginWithPasswordUsecase } from '@src/usecases/auth/login-with-password.usecase';
 import { LoginWithThirdPartyUsecase } from '@src/usecases/auth/login-with-third-party.usecase';
+import { ValidateAccessTokenSessionUsecase } from '@src/usecases/auth/validate-access-token-session.usecase';
 
 @Module({
   imports: [AuthModule, ThirdPartyAuthModule, AccountInstallerModule],
@@ -19,6 +20,7 @@ import { LoginWithThirdPartyUsecase } from '@src/usecases/auth/login-with-third-
     LoginWithThirdPartyUsecase,
     DecideLoginRoleUsecase,
     EnrichLoginWithIdentityUsecase,
+    ValidateAccessTokenSessionUsecase,
   ],
   exports: [
     LoginWithPasswordUsecase,
@@ -27,6 +29,7 @@ import { LoginWithThirdPartyUsecase } from '@src/usecases/auth/login-with-third-
     LoginWithThirdPartyUsecase,
     DecideLoginRoleUsecase,
     EnrichLoginWithIdentityUsecase,
+    ValidateAccessTokenSessionUsecase,
   ],
 })
 export class AuthUsecasesModule {}

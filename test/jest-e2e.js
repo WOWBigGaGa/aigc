@@ -10,16 +10,9 @@ const GROUPS = {
       '03-roles-guard/roles-guard.e2e-spec.ts',
       '04-user-info/update-access-group.e2e-spec.ts',
       '04-user-info/update-visible-user-info.e2e-spec.ts',
-      '05-verification-record/verification-record.e2e-spec.ts',
       '05-verification-record/verification-record-types.e2e-spec.ts',
       '05-verification-record/verification-record-invite.e2e-spec.ts',
-      '06-identity-management/identity-management.e2e-spec.ts',
-      '06-identity-management/learner-management.e2e-spec.ts',
-      '06-identity-management/customer-management.e2e-spec.ts',
-      '06-identity-management/coach-management.e2e-spec.ts',
-      '06-identity-management/manager-management.e2e-spec.ts',
       '07-pagination-sort-search/pagination.e2e-spec.ts',
-      '07-pagination-sort-search/learners-pagination.e2e-spec.ts',
       '07-pagination-sort-search/search.e2e-spec.ts',
       '07-pagination-sort-search/sort.e2e-spec.ts',
     ],
@@ -66,9 +59,9 @@ const DEFAULT_GROUP = 'core';
 
 const parseCsv = (raw) =>
   (raw || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 const requestedGroup = (process.env.E2E_GROUP || '').trim();
 const selectedGroupName = requestedGroup || DEFAULT_GROUP;
@@ -109,7 +102,7 @@ const jestConfig = {
   testPathIgnorePatterns: ['/node_modules/', '\\.skip\\.ts$', '/__.*\\.skip__/', '/.*\\.skip/'],
 
   transform: {
-    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
+    '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.spec.json' }],
   },
 
   setupFiles: ['tsconfig-paths/register'],

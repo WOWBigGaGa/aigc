@@ -7,7 +7,7 @@ export class CreateBaseThirdPartyAuthTable1773926400000 implements MigrationInte
     await queryRunner.query(`
       CREATE TABLE \`base_third_party_auth\` (
         \`id\` int NOT NULL AUTO_INCREMENT COMMENT '主键',
-        \`account_id\` int NOT NULL COMMENT '关联账号 base_user_accounts.id',
+        \`account_id\` int NOT NULL COMMENT '关联账号 base_user_account.id',
         \`provider\` enum('WECHAT','QQ','GOOGLE','GITHUB','WEAPP') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '第三方平台类型',
         \`provider_user_id\` varchar(128) NOT NULL COMMENT '平台返回的用户唯一标识，如微信 openid、Google sub',
         \`union_id\` varchar(128) DEFAULT NULL COMMENT '例如微信的 unionid，防御性保留字段',

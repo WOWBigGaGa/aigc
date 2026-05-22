@@ -70,9 +70,6 @@ export function initGraphQLSchema(): {
       'SubjectType',
       'VerificationRecordStatus',
       'VerificationRecordType',
-      'LearnerSortField',
-      'CustomerSortField',
-      'CoachSortField',
       'OrderDirection',
       'PaginationMode',
       'SortDirection',
@@ -103,17 +100,5 @@ export function initGraphQLSchema(): {
     throw new Error(`GraphQL Schema 初始化失败: ${errorMessage}`, {
       cause: error,
     });
-  }
-}
-
-/**
- * 重置初始化状态（仅用于测试）
- * @internal
- */
-export function resetInitState(): void {
-  if (process.env.NODE_ENV === 'test') {
-    inited = false;
-  } else {
-    throw new Error('resetInitState 只能在测试环境中使用');
   }
 }
