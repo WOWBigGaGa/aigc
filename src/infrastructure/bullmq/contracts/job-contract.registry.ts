@@ -2,12 +2,14 @@
 import { BULLMQ_JOBS, BULLMQ_QUEUES, type BullMqQueueName } from '../bullmq.constants';
 import { AI_JOB_CONTRACT } from './ai.contract';
 import { EMAIL_JOB_CONTRACT } from './email.contract';
+import { MAGIC_CRAFT_JOB_CONTRACT } from './magic-craft.contract';
 
 type PayloadValidator<T> = (payload: unknown) => payload is T;
 
 type QueueJobContractMap = {
   readonly [BULLMQ_QUEUES.EMAIL]: typeof EMAIL_JOB_CONTRACT;
   readonly [BULLMQ_QUEUES.AI]: typeof AI_JOB_CONTRACT;
+  readonly [BULLMQ_QUEUES.MAGIC_CRAFT]: typeof MAGIC_CRAFT_JOB_CONTRACT;
 };
 
 export type BullMqJobName<Q extends BullMqQueueName> = keyof QueueJobContractMap[Q] & string;
@@ -36,6 +38,10 @@ export const BULLMQ_JOB_PAYLOAD_VALIDATORS = {
   [BULLMQ_QUEUES.AI]: {
     [BULLMQ_JOBS.AI.GENERATE]: AI_JOB_CONTRACT[BULLMQ_JOBS.AI.GENERATE].payloadValidator,
     [BULLMQ_JOBS.AI.EMBED]: AI_JOB_CONTRACT[BULLMQ_JOBS.AI.EMBED].payloadValidator,
+  },
+  [BULLMQ_QUEUES.MAGIC_CRAFT]: {
+    [BULLMQ_JOBS.MAGIC_CRAFT.CRAFT]:
+      MAGIC_CRAFT_JOB_CONTRACT[BULLMQ_JOBS.MAGIC_CRAFT.CRAFT].payloadValidator,
   },
 } as const satisfies {
   readonly [Q in BullMqQueueName]: {

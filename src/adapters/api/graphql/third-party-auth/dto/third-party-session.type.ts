@@ -7,13 +7,13 @@ import { Field, ObjectType } from '@nestjs/graphql';
  */
 @ObjectType({ description: '第三方用户基本信息' })
 export class ThirdPartyProfileType {
-  @Field({ nullable: true, description: '用户昵称' })
+  @Field(() => String, { nullable: true, description: '用户昵称' })
   nickname?: string | null;
 
-  @Field({ nullable: true, description: '用户邮箱' })
+  @Field(() => String, { nullable: true, description: '用户邮箱' })
   email?: string | null;
 
-  @Field({ nullable: true, description: '用户头像 URL' })
+  @Field(() => String, { nullable: true, description: '用户头像 URL' })
   avatarUrl?: string | null;
 }
 
@@ -25,7 +25,7 @@ export class ThirdPartySessionType {
   @Field({ description: '第三方平台用户唯一标识' })
   providerUserId!: string;
 
-  @Field({
+  @Field(() => String, {
     nullable: true,
     description: '联合 ID，用于跨应用识别同一用户 (仅特定平台返回，如微信 unionid)',
   })

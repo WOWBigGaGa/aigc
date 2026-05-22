@@ -153,7 +153,8 @@ src/
 
    ```bash
    cp env/.env.example env/.env.development
-   # 编辑 env/.env.development 填入数据库配置
+   # 编辑 env/.env.development 填入数据库和 Redis 配置
+   # 必填：REDIS_HOST / REDIS_PORT / REDIS_DB
    ```
 
 3. **启动应用**
@@ -165,8 +166,14 @@ src/
    # 开发模式（Worker）
    npm run dev:worker
 
+   # 开发模式（Worker，已编译 dist）
+   npm run start:worker
+
    # 生产模式（API）
    npm run start:prod
+
+   # 生产模式（Worker）
+   npm run start:worker:prod
    ```
 
 ### 生产部署日志目录要求

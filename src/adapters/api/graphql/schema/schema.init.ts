@@ -76,6 +76,7 @@ export function initGraphQLSchema(): {
       'OrderDirection',
       'PaginationMode',
       'SortDirection',
+      'MagicItemType',
     ];
 
     // 生成 Schema 指纹

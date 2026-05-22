@@ -1,10 +1,16 @@
 // src/bootstraps/api/api.controller.ts
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Redirect, ServiceUnavailableException } from '@nestjs/common';
 import { ApiService, type ApiHealthPayload, type ApiReadinessPayload } from './api.service';
 
 @Controller()
 export class ApiController {
   constructor(private readonly apiService: ApiService) {}
+
+  @Get()
+  @Redirect('/graphql', 302)
+  getRoot(): void {
+    // 重定向到 GraphQL playground
+  }
 
   @Get('health')
   getHealth(): ApiHealthPayload {

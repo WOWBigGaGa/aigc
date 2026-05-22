@@ -26,6 +26,7 @@ import {
   LearnerSortField,
   OrderDirection,
 } from '@app-types/common/sort.types';
+import { MagicItemType, MagicItemCraftTaskStatus, MagicItemQualityLevel } from '@src/modules/magic-workshop/entities/magic-item-craft-task.entity';
 
 export function registerEnums(): void {
   registerEnumType(AccountStatus, { name: 'AccountStatus' });
@@ -48,4 +49,7 @@ export function registerEnums(): void {
   registerEnumType(OrderDirection, { name: 'OrderDirection' });
   registerEnumType(GqlPaginationMode, { name: 'PaginationMode' });
   registerEnumType(GqlSortDirection, { name: 'SortDirection' });
+  registerEnumType(MagicItemType, { name: 'MagicItemType' });
+  registerEnumType(MagicItemCraftTaskStatus, { name: 'MagicItemCraftTaskStatus' });
+  registerEnumType(MagicItemQualityLevel, { name: 'MagicItemQualityLevel' });
 }

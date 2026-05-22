@@ -10,6 +10,7 @@ import { RegistrationUsecasesModule } from '@src/usecases/registration/registrat
 import { ThirdPartyAccountsUsecasesModule } from '@src/usecases/third-party-accounts/third-party-accounts-usecases.module';
 import { VerificationRecordUsecasesModule } from '@src/usecases/verification-record/verification-record-usecases.module';
 import { VerificationUsecasesModule } from '@src/usecases/verification/verification-usecases.module';
+import { MagicWorkshopModule } from '@src/modules/magic-workshop/magic-workshop.module';
 
 import { Module } from '@nestjs/common';
 
@@ -27,6 +28,7 @@ import { ManagerResolver } from './identity-management/manager/manager.resolver'
 import { RegistrationResolver } from './registration/registration.resolver';
 import { ThirdPartyAuthResolver } from './third-party-auth/third-party-auth.resolver';
 import { VerificationRecordResolver } from './verification-record/verification-record.resolver';
+import { MagicWorkshopResolver } from './magic-workshop/magic-workshop.resolver';
 
 // Guards
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -50,6 +52,7 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     IdentityManagementUsecasesModule,
     VerificationRecordUsecasesModule,
     VerificationUsecasesModule,
+    MagicWorkshopModule,
   ],
   providers: [
     // Resolvers
@@ -66,6 +69,7 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     CoachResolver, // 注册教练管理 resolver
     ManagerResolver, // 注册经理管理 resolver
     UserInfoResolver,
+    MagicWorkshopResolver,
     // Guards
     QmWorkerEntryGuard,
     JwtAuthGuard,
@@ -86,6 +90,7 @@ import { QmWorkerEntryGuard } from './guards/qm-worker-entry.guard';
     CoachResolver, // 导出教练管理 resolver
     ManagerResolver, // 导出经理管理 resolver
     UserInfoResolver,
+    MagicWorkshopResolver,
     QmWorkerEntryGuard,
     JwtAuthGuard,
     RolesGuard,

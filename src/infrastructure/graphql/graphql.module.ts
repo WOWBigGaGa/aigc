@@ -16,6 +16,7 @@ import { PinoLogger } from 'nestjs-pino';
  */
 const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => {
   const enableSandbox = config.get<boolean>('graphql.playground', false);
+  const isDev = process.env.NODE_ENV !== 'production';
 
   return {
     autoSchemaFile: config.get<string>('graphql.schemaDestination'),
@@ -28,6 +29,7 @@ const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => {
       : [ApolloServerPluginLandingPageDisabled()],
     // 将原始请求对象注入到 GraphQL 上下文，供 JwtAuthGuard 与 RolesGuard 读取 Authorization 头
     context: ({ req }: { req: Request }) => ({ req }),
+    csrfPrevention: false,
   };
 };
 

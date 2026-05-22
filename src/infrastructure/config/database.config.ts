@@ -30,6 +30,14 @@ const getIntEnvWithDefault = (key: string, defaultValue: number): number => {
   return parsed;
 };
 
+const getRequiredEnv = (key: string): string => {
+  const value = getOptionalEnv(key);
+  if (!value) {
+    throw new Error(`${key} is required`);
+  }
+  return value;
+};
+
 /**
  * 数据库配置工厂函数
  * 为 TypeORM 提供 MySQL 8.0 数据库连接配置
@@ -37,11 +45,11 @@ const getIntEnvWithDefault = (key: string, defaultValue: number): number => {
 const databaseConfig: ConfigFactory = () => ({
   mysql: {
     type: 'mysql',
-    host: process.env.DB_HOST || 'localhost',
+    host: getRequiredEnv('DB_HOST'),
     port: getIntEnvWithDefault('DB_PORT', 3306),
-    username: process.env.DB_USER,
+    username: getRequiredEnv('DB_USER'),
     password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
+    database: getRequiredEnv('DB_NAME'),
     timezone: process.env.DB_TIMEZONE || '+08:00',
     // 不根据 Entity 自动修改数据库
     synchronize: process.env.DB_SYNCHRONIZE === 'true',
