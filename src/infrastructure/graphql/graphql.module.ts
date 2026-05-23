@@ -23,7 +23,6 @@ const asApolloDriverPlugin = (plugin: unknown): ApolloDriverPlugin => {
  */
 const createGraphQLConfig = (config: ConfigService): ApolloDriverConfig => {
   const enableSandbox = config.get<boolean>('graphql.playground', false);
-  const isDev = process.env.NODE_ENV !== 'production';
 
   return {
     autoSchemaFile: config.get<string>('graphql.schemaDestination'),

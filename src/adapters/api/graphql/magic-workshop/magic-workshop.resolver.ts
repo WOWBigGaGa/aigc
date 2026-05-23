@@ -1,33 +1,38 @@
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ValidateInput } from '@adapters/api/graphql/common/validate-input.decorator';
-import { CreateMagicItemCraftTaskInput } from '@src/modules/magic-workshop/dto/create-magic-item-craft-task.input';
-import { MagicItemCraftTaskEntity } from '@src/modules/magic-workshop/entities/magic-item-craft-task.entity';
-import { MagicWorkshopService } from '@src/modules/magic-workshop/magic-workshop.service';
+import { CreateMagicItemCraftTaskUsecase } from '@src/usecases/magic-workshop/create-magic-item-craft-task.usecase';
+import { GetAllMagicItemCraftTasksUsecase } from '@src/usecases/magic-workshop/get-all-magic-item-craft-tasks.usecase';
+import { GetMagicItemCraftTaskUsecase } from '@src/usecases/magic-workshop/get-magic-item-craft-task.usecase';
+import { CreateMagicItemCraftTaskInput } from './dto/create-magic-item-craft-task.input';
+import { MagicItemCraftTaskDTO } from './dto/magic-item-craft-task.dto';
 
 @Resolver()
 export class MagicWorkshopResolver {
-  constructor(private readonly magicWorkshopService: MagicWorkshopService) {}
+  constructor(
+    private readonly createMagicItemCraftTaskUsecase: CreateMagicItemCraftTaskUsecase,
+    private readonly getMagicItemCraftTaskUsecase: GetMagicItemCraftTaskUsecase,
+    private readonly getAllMagicItemCraftTasksUsecase: GetAllMagicItemCraftTasksUsecase,
+  ) {}
 
-  @Mutation(() => MagicItemCraftTaskEntity, { description: '创建魔法道具制作任务' })
+  @Mutation(() => MagicItemCraftTaskDTO, { description: '创建魔法道具制作任务' })
   @ValidateInput()
-  async createMagicItemCraftTask(
-    @Args('input') input: CreateMagicItemCraftTaskInput,
-  ): Promise<MagicItemCraftTaskEntity> {
-    return this.magicWorkshopService.createMagicItemCraftTask(input);
+  async createMagicItemCraftTask(@Args('input') input: CreateMagicItemCraftTaskInput) {
+    const result = await this.createMagicItemCraftTaskUsecase.execute({ input });
+    return result.task;
   }
 
-  @Query(() => MagicItemCraftTaskEntity, {
+  @Query(() => MagicItemCraftTaskDTO, {
     nullable: true,
     description: '根据任务 ID 查询魔法道具制作任务',
   })
-  async magicItemCraftTask(@Args('id') id: string): Promise<MagicItemCraftTaskEntity | null> {
-    return this.magicWorkshopService.getMagicItemCraftTaskById(id);
+  async magicItemCraftTask(@Args('id') id: string) {
+    return this.getMagicItemCraftTaskUsecase.execute({ id });
   }
 
-  @Query(() => [MagicItemCraftTaskEntity], {
+  @Query(() => [MagicItemCraftTaskDTO], {
     description: '查询所有魔法道具制作任务',
   })
-  async magicItemCraftTasks(): Promise<MagicItemCraftTaskEntity[]> {
-    return this.magicWorkshopService.getAllMagicItemCraftTasks();
+  async magicItemCraftTasks() {
+    return this.getAllMagicItemCraftTasksUsecase.execute();
   }
 }

@@ -25,7 +25,7 @@ const { mysql } = databaseConfig() as {
   };
 };
 
-export const AppDataSource = new DataSource({
+export const appDataSource = new DataSource({
   type: 'mysql',
   host: mysql.host,
   port: mysql.port,
@@ -37,7 +37,10 @@ export const AppDataSource = new DataSource({
   synchronize: false,
   logging: mysql.logging,
   extra: mysql.extra,
-  entities: [path.join(process.cwd(), 'src/**/*.entity.ts'), path.join(process.cwd(), 'dist/**/*.entity.js')],
+  entities: [
+    path.join(process.cwd(), 'src/**/*.entity.ts'),
+    path.join(process.cwd(), 'dist/**/*.entity.js'),
+  ],
   migrations: [
     path.join(process.cwd(), 'src/infrastructure/database/migrations/*.migration.ts'),
     path.join(process.cwd(), 'dist/src/infrastructure/database/migrations/*.migration.js'),

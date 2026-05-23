@@ -1,10 +1,6 @@
 // src/infrastructure/bullmq/contracts/magic-craft.contract.ts
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '../bullmq.constants';
-import {
-  isNonEmptyString,
-  isOptionalNonEmptyString,
-  isRecord,
-} from './shared-payload-validators';
+import { isNonEmptyString, isOptionalNonEmptyString, isRecord } from './shared-payload-validators';
 
 export interface MagicCraftPayload {
   readonly taskId: string;

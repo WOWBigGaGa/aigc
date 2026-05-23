@@ -3,7 +3,7 @@ import { randomInt } from 'crypto';
 import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { MagicWorkshopService } from '@src/modules/magic-workshop/magic-workshop.service';
-import { MagicItemQualityLevel } from '@src/modules/magic-workshop/entities/magic-item-craft-task.entity';
+import { MagicItemQualityLevel } from '@src/modules/magic-workshop/magic-workshop.types';
 import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import { MagicCraftPayload } from '@src/infrastructure/bullmq/contracts/magic-craft.contract';
 
@@ -35,7 +35,11 @@ export class CraftConsumer extends WorkerHost {
       const quality = this.pickQuality(payload.materialLevel);
       craftLogLines.push(`加工完成，判定品质为 ${quality}。`);
 
-      const resultDescription = this.buildResultDescription(payload.itemName, quality, payload.materialLevel);
+      const resultDescription = this.buildResultDescription(
+        payload.itemName,
+        quality,
+        payload.materialLevel,
+      );
       craftLogLines.push(`生成结果描述：${resultDescription}`);
 
       const craftLog = craftLogLines.join('\n');
@@ -51,7 +55,11 @@ export class CraftConsumer extends WorkerHost {
       craftLogLines.push(`加工失败：${errorMessage}`);
       const craftLog = craftLogLines.join('\n');
 
-      await this.magicWorkshopService.failMagicItemCraftTask(payload.taskId, errorMessage, craftLog);
+      await this.magicWorkshopService.failMagicItemCraftTask(
+        payload.taskId,
+        errorMessage,
+        craftLog,
+      );
       this.logger.error({ jobId: job.id, error: errorMessage }, '魔法制作任务处理失败');
 
       return { success: false };
@@ -59,7 +67,7 @@ export class CraftConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent('completed')
-  async onCompleted(job: Job<MagicCraftPayload>): Promise<void> {
+  onCompleted(job: Job<MagicCraftPayload>): void {
     if (job.name !== CRAFT_JOB_NAME) {
       return;
     }
@@ -67,14 +75,14 @@ export class CraftConsumer extends WorkerHost {
   }
 
   private pickQuality(materialLevel: number): MagicItemQualityLevel {
-    const weights: Record<number, ReadonlyArray<number>> = {
-      1: [80, 15, 4, 1],
-      2: [60, 25, 10, 5],
-      3: [35, 35, 20, 10],
-      4: [20, 35, 30, 15],
-      5: [10, 25, 35, 30],
+    const weights: Record<string, ReadonlyArray<number>> = {
+      level1: [80, 15, 4, 1],
+      level2: [60, 25, 10, 5],
+      level3: [35, 35, 20, 10],
+      level4: [20, 35, 30, 15],
+      level5: [10, 25, 35, 30],
     };
-    const values = weights[materialLevel] ?? weights[1];
+    const values = weights[`level${materialLevel}`] ?? weights.level1;
     const threshold = randomInt(100);
     let sum = 0;
 

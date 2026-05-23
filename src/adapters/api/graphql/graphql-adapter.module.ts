@@ -5,11 +5,11 @@ import { AiQueueUsecasesModule } from '@src/usecases/ai-queue/ai-queue-usecases.
 import { AuthUsecasesModule } from '@src/usecases/auth/auth-usecases.module';
 import { AsyncTaskRecordUsecasesModule } from '@src/usecases/async-task-record/async-task-record-usecases.module';
 import { EmailQueueUsecasesModule } from '@src/usecases/email-queue/email-queue-usecases.module';
+import { MagicWorkshopUsecasesModule } from '@src/usecases/magic-workshop/magic-workshop-usecases.module';
 import { RegistrationUsecasesModule } from '@src/usecases/registration/registration-usecases.module';
 import { ThirdPartyAccountsUsecasesModule } from '@src/usecases/third-party-accounts/third-party-accounts-usecases.module';
 import { VerificationRecordUsecasesModule } from '@src/usecases/verification-record/verification-record-usecases.module';
 import { VerificationUsecasesModule } from '@src/usecases/verification/verification-usecases.module';
-import { MagicWorkshopModule } from '@src/modules/magic-workshop/magic-workshop.module';
 
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -49,11 +49,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     AsyncTaskRecordUsecasesModule,
     AuthUsecasesModule,
     EmailQueueUsecasesModule,
+    MagicWorkshopUsecasesModule,
     RegistrationUsecasesModule,
     ThirdPartyAccountsUsecasesModule,
     VerificationRecordUsecasesModule,
     VerificationUsecasesModule,
-    MagicWorkshopModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   providers: [

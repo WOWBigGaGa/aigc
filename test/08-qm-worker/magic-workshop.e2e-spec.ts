@@ -4,7 +4,10 @@ import request from 'supertest';
 import { ApiModule } from '@src/bootstraps/api/api.module';
 import { WorkerModule } from '@src/bootstraps/worker/worker.module';
 import { MagicWorkshopService } from '@src/modules/magic-workshop/magic-workshop.service';
-import { MagicItemCraftTaskStatus, MagicItemQualityLevel } from '@src/modules/magic-workshop/entities/magic-item-craft-task.entity';
+import {
+  MagicItemCraftTaskStatus,
+  MagicItemQualityLevel,
+} from '@src/modules/magic-workshop/magic-workshop.types';
 import { initGraphQLSchema } from '../../src/adapters/api/graphql/schema/schema.init';
 
 jest.setTimeout(30000);
@@ -50,11 +53,7 @@ const QUERY_MAGIC_CRAFT_TASK = `
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-const postGraphQL = (
-  app: INestApplication,
-  query: string,
-  variables?: Record<string, unknown>,
-) => {
+const postGraphQL = (app: INestApplication, query: string, variables?: Record<string, unknown>) => {
   return request(app.getHttpServer()).post('/graphql').send({ query, variables });
 };
 
@@ -141,16 +140,16 @@ describe('Magic Workshop E2E', () => {
 
     expect(response.body.data).toBeNull();
     expect(Array.isArray(response.body.errors)).toBe(true);
-    expect(response.body.errors[0].message).toMatch(/MagicItemType|Expected type MagicItemType|Unknown value/);
+    expect(response.body.errors[0].message).toMatch(
+      /MagicItemType|Expected type MagicItemType|Unknown value/,
+    );
   });
 
   it('should transition task to FAILED when worker processing encounters an internal failure', async () => {
     const itemName = `破损法珠-${Date.now()}`;
-    const completeSpy = jest
-      .spyOn(service, 'completeMagicItemCraftTask')
-      .mockImplementation(async () => {
-        throw new Error('Mock worker failure');
-      });
+    const completeSpy = jest.spyOn(service, 'completeMagicItemCraftTask').mockImplementation(() => {
+      throw new Error('Mock worker failure');
+    });
 
     const response = await postGraphQL(app, CREATE_MAGIC_CRAFT_TASK_MUTATION, {
       input: {

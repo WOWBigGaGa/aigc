@@ -3,16 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
+import { BULLMQ_JOBS, BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
+import { MagicItemCraftTaskEntity } from './entities/magic-item-craft-task.entity';
 import {
-  BULLMQ_JOBS,
-  BULLMQ_QUEUES,
-} from '@src/infrastructure/bullmq/bullmq.constants';
-import {
-  MagicItemCraftTaskEntity,
   MagicItemCraftTaskStatus,
   MagicItemQualityLevel,
-} from './entities/magic-item-craft-task.entity';
-import { CreateMagicItemCraftTaskInput } from './dto/create-magic-item-craft-task.input';
+  CreateMagicItemCraftTaskInput,
+} from './magic-workshop.types';
 
 @Injectable()
 export class MagicWorkshopService {
@@ -89,7 +86,11 @@ export class MagicWorkshopService {
     return this.magicItemCraftTaskRepository.save(task);
   }
 
-  async failMagicItemCraftTask(taskId: string, failureReason: string, craftLog?: string): Promise<MagicItemCraftTaskEntity | null> {
+  async failMagicItemCraftTask(
+    taskId: string,
+    failureReason: string,
+    craftLog?: string,
+  ): Promise<MagicItemCraftTaskEntity | null> {
     const task = await this.magicItemCraftTaskRepository.findOne({ where: { id: taskId } });
     if (!task) {
       return null;
