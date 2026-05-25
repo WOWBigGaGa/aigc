@@ -291,6 +291,84 @@ MIGRATION_DRILL_CREATE_TEMP_DB=true npm run migration:drill:empty-db
 
 本项目基于 [MIT 许可证](LICENSE) 开源。
 
+## 魔法工坊功能
+
+### 概述
+
+魔法工坊是一个异步道具制作任务系统，支持创建、查询和管理魔法道具制作任务。
+
+### 道具类型
+
+| 类型 | 说明 |
+|------|------|
+| `WEAPON` | 武器类（如火焰剑、冰霜魔杖） |
+| `ARMOR` | 护甲类（如隐身斗篷、魔法盾牌） |
+| `TOOL` | 工具类（如万能钥匙、炼金炉） |
+| `TOY` | 玩具类（如会唱歌的茶壶、魔法八音盒） |
+
+### 材料等级
+
+| 等级 | 说明 | 传说品质概率 |
+|------|------|-------------|
+| 1 | 普通材料 | 1% |
+| 2 | 进阶材料 | 5% |
+| 3 | 高级材料 | 10% |
+| 4 | 稀有材料 | 15% |
+| 5 | 传奇材料 | 30% |
+
+### GraphQL API 示例
+
+#### 创建制作任务
+
+```graphql
+mutation {
+  createMagicItemCraftTask(input: {
+    itemName: "火焰戒指"
+    itemType: WEAPON
+    materialLevel: 5
+    requestNote: "请打造高品质火焰效果"
+  }) {
+    id
+    itemName
+    itemType
+    materialLevel
+    status
+    createdAt
+  }
+}
+```
+
+#### 查询所有任务
+
+```graphql
+query {
+  magicItemCraftTasks {
+    id
+    itemName
+    itemType
+    materialLevel
+    status
+    qualityLevel
+    createdAt
+  }
+}
+```
+
+#### 根据 ID 查询任务
+
+```graphql
+query {
+  magicItemCraftTask(id: "任务ID") {
+    id
+    itemName
+    itemType
+    status
+    qualityLevel
+    resultDescription
+  }
+}
+```
+
 ## 相关资源
 
 - [NestJS Documentation](https://docs.nestjs.com)
