@@ -1,6 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ArticleEntity } from './entities/article.entity';
 import { CategoryEntity } from './entities/category.entity';
