@@ -327,6 +327,85 @@ export class ArticleRepository {
     }
   }
 
+  /**
+   * 获取归档统计（按年月分组）
+   */
+  async getArchives(
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<{ year: number; month: number; count: number }[]> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      const result = await repository
+        .createQueryBuilder('article')
+        .select([
+          'YEAR(article.published_at) as year',
+          'MONTH(article.published_at) as month',
+          'COUNT(article.id) as count',
+        ])
+        .where('article.status = :status', { status: ArticleStatus.PUBLISHED })
+        .andWhere('article.published_at IS NOT NULL')
+        .andWhere('article.deleted_at IS NULL')
+        .groupBy('year, month')
+        .orderBy('year DESC, month DESC')
+        .getRawMany<{ year: number; month: number; count: number }>();
+
+      return result.map((row) => ({
+        year: row.year,
+        month: row.month,
+        count: row.count,
+      }));
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取归档统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 获取分类统计
+   */
+  async getCategoryStats(
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<{ categoryId: string; categoryName: string; articleCount: number }[]> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      const result = await repository
+        .createQueryBuilder('article')
+        .select([
+          'article.category_id as categoryId',
+          'category.name as categoryName',
+          'COUNT(article.id) as articleCount',
+        ])
+        .leftJoin('category', 'category', 'article.category_id = category.id')
+        .where('article.status = :status', { status: ArticleStatus.PUBLISHED })
+        .andWhere('article.deleted_at IS NULL')
+        .andWhere('article.category_id IS NOT NULL')
+        .groupBy('article.category_id, category.name')
+        .orderBy('articleCount DESC')
+        .getRawMany<{ categoryId: string; categoryName: string; articleCount: number }>();
+
+      return result.map((row) => ({
+        categoryId: row.categoryId,
+        categoryName: row.categoryName || '未分类',
+        articleCount: row.articleCount,
+      }));
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取分类统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
   private getRepository(
     transactionContext?: PersistenceTransactionContext,
   ): Repository<ArticleEntity> {

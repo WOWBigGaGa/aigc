@@ -41,6 +41,8 @@ describe('ArticleQueryService', () => {
       create: jest.fn(),
       update: jest.fn(),
       softDelete: jest.fn(),
+      getArchives: jest.fn(),
+      getCategoryStats: jest.fn(),
     };
 
     categoryRepository = {
@@ -198,18 +200,48 @@ describe('ArticleQueryService', () => {
   });
 
   describe('getArchives', () => {
-    it('should return empty array (stub implementation)', () => {
-      const result = service.getArchives();
+    it('should return archives', async () => {
+      const mockArchives = [
+        { year: 2026, month: 6, count: 5 },
+        { year: 2026, month: 5, count: 3 },
+      ];
+      articleRepository.getArchives.mockResolvedValue(mockArchives);
 
-      expect(result).toEqual([]);
+      const result = await service.getArchives();
+
+      expect(result).toEqual(mockArchives);
+      expect(articleRepository.getArchives).toHaveBeenCalled();
+    });
+
+    it('should throw DomainError when repository throws', async () => {
+      articleRepository.getArchives.mockRejectedValue(
+        new DomainError(BLOG_ERROR.QUERY_FAILED, 'Query failed'),
+      );
+
+      await expect(service.getArchives()).rejects.toThrow(DomainError);
     });
   });
 
   describe('getCategoryStats', () => {
-    it('should return empty array (stub implementation)', () => {
-      const result = service.getCategoryStats();
+    it('should return category stats', async () => {
+      const mockStats = [
+        { categoryId: 'cat-1', categoryName: 'Category 1', articleCount: 10 },
+        { categoryId: 'cat-2', categoryName: 'Category 2', articleCount: 5 },
+      ];
+      articleRepository.getCategoryStats.mockResolvedValue(mockStats);
 
-      expect(result).toEqual([]);
+      const result = await service.getCategoryStats();
+
+      expect(result).toEqual(mockStats);
+      expect(articleRepository.getCategoryStats).toHaveBeenCalled();
+    });
+
+    it('should throw DomainError when repository throws', async () => {
+      articleRepository.getCategoryStats.mockRejectedValue(
+        new DomainError(BLOG_ERROR.QUERY_FAILED, 'Query failed'),
+      );
+
+      await expect(service.getCategoryStats()).rejects.toThrow(DomainError);
     });
   });
 });

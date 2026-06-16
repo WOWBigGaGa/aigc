@@ -11,6 +11,7 @@ import { FileEntity } from './entities/file.entity';
 import { ArticleRepository } from './repositories/article.repository';
 import { CommentRepository } from './repositories/comment.repository';
 import { CategoryRepository } from './repositories/category.repository';
+import { TagRepository } from './repositories/tag.repository';
 import { ArticleQueryService } from './queries/article.query.service';
 import { CommentQueryService } from './queries/comment.query.service';
 
@@ -31,16 +32,10 @@ import { CommentQueryService } from './queries/comment.query.service';
     ArticleRepository,
     CommentRepository,
     CategoryRepository,
+    TagRepository,
     ArticleQueryService,
     CommentQueryService,
   ],
-  exports: [
-    TypeOrmModule,
-    ArticleRepository,
-    CommentRepository,
-    CategoryRepository,
-    ArticleQueryService,
-    CommentQueryService,
-  ],
+  exports: [TypeOrmModule, ArticleQueryService, CommentQueryService],
 })
 export class BlogModule {}

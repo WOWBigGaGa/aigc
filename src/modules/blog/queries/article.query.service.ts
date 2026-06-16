@@ -99,21 +99,45 @@ export class ArticleQueryService {
   /**
    * 获取归档统计（按年月统计文章数）
    */
-  getArchives(): Archive[] {
-    // 这里需要直接使用 TypeORM QueryBuilder 来进行聚合查询
-    // 由于 Repository 不提供聚合查询方法，我们暂时返回空数组
-    // 在实际实现中，应该使用 QueryBuilder 进行 GROUP BY 查询
-    return [];
+  async getArchives(): Promise<Archive[]> {
+    try {
+      const result = await this.articleRepository.getArchives();
+      return result;
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取归档统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
   }
 
   /**
    * 获取分类统计
    */
-  getCategoryStats(): CategoryStats[] {
-    // 这里需要直接使用 TypeORM QueryBuilder 来进行聚合查询
-    // 由于 Repository 不提供聚合查询方法，我们暂时返回空数组
-    // 在实际实现中，应该使用 QueryBuilder 进行 JOIN 和 GROUP BY 查询
-    return [];
+  async getCategoryStats(): Promise<CategoryStats[]> {
+    try {
+      const result = await this.articleRepository.getCategoryStats();
+      return result;
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取分类统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
   }
 
   /**
