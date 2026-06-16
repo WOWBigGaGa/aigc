@@ -143,3 +143,78 @@ export interface CreateTagInput {
   name: string;
   slug?: string;
 }
+
+// 分页参数
+export interface PaginationInput {
+  page: number;
+  limit: number;
+}
+
+// 分页结果
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+// 文章视图（用于 QueryService 输出）
+export interface ArticleView {
+  id: string;
+  title: string;
+  content: string;
+  coverImage: string | null;
+  summary: string;
+  status: ArticleStatus;
+  categoryId: string | null;
+  authorId: string;
+  viewCount: number;
+  likeCount: number;
+  isPinned: boolean;
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 文章筛选参数
+export interface ArticleFilterInput {
+  status?: ArticleStatus;
+  categoryId?: string;
+  tagIds?: string[];
+  keyword?: string;
+  isPinned?: boolean;
+}
+
+// 评论视图
+export interface CommentView {
+  id: string;
+  articleId: string;
+  authorName: string;
+  authorEmail: string;
+  authorAvatar: string;
+  content: string;
+  parentId: string | null;
+  status: CommentStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 评论树节点
+export interface CommentTreeNode extends CommentView {
+  children: CommentTreeNode[];
+}
+
+// 归档统计
+export interface Archive {
+  year: number;
+  month: number;
+  count: number;
+}
+
+// 分类统计
+export interface CategoryStats {
+  categoryId: string;
+  categoryName: string;
+  articleCount: number;
+}

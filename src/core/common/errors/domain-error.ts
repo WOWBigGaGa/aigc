@@ -176,6 +176,23 @@ export const PAGINATION_ERROR = {
 Object.freeze(PAGINATION_ERROR);
 
 export type PaginationErrorCode = (typeof PAGINATION_ERROR)[keyof typeof PAGINATION_ERROR];
+
+// 博客系统相关错误码
+export const BLOG_ERROR = {
+  QUERY_FAILED: 'BLOG_QUERY_FAILED',
+  CREATE_FAILED: 'BLOG_CREATE_FAILED',
+  UPDATE_FAILED: 'BLOG_UPDATE_FAILED',
+  DELETE_FAILED: 'BLOG_DELETE_FAILED',
+  NOT_FOUND: 'BLOG_NOT_FOUND',
+  INVALID_PARAMS: 'BLOG_INVALID_PARAMS',
+  CATEGORY_NOT_FOUND: 'BLOG_CATEGORY_NOT_FOUND',
+  TAG_NOT_FOUND: 'BLOG_TAG_NOT_FOUND',
+  COMMENT_NOT_FOUND: 'BLOG_COMMENT_NOT_FOUND',
+} as const;
+Object.freeze(BLOG_ERROR);
+
+export type BlogErrorCode = (typeof BLOG_ERROR)[keyof typeof BLOG_ERROR];
+
 export type DomainErrorCode =
   | AuthErrorCode
   | AccountErrorCode
@@ -186,7 +203,8 @@ export type DomainErrorCode =
   | AsyncTaskRecordErrorCode
   | TimeErrorCode
   | InputNormalizeErrorCode
-  | PaginationErrorCode;
+  | PaginationErrorCode
+  | BlogErrorCode;
 
 // 类型守卫：统一判断是否为领域错误（兼容多包/反序列化场景）
 export const isDomainError = (error: unknown): error is DomainError => {

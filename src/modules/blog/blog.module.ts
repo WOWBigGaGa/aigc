@@ -8,6 +8,11 @@ import { CommentEntity } from './entities/comment.entity';
 import { UserEntity } from './entities/user.entity';
 import { FriendLinkEntity } from './entities/friend-link.entity';
 import { FileEntity } from './entities/file.entity';
+import { ArticleRepository } from './repositories/article.repository';
+import { CommentRepository } from './repositories/comment.repository';
+import { CategoryRepository } from './repositories/category.repository';
+import { ArticleQueryService } from './queries/article.query.service';
+import { CommentQueryService } from './queries/comment.query.service';
 
 @Module({
   imports: [
@@ -22,6 +27,20 @@ import { FileEntity } from './entities/file.entity';
       FileEntity,
     ]),
   ],
-  exports: [TypeOrmModule],
+  providers: [
+    ArticleRepository,
+    CommentRepository,
+    CategoryRepository,
+    ArticleQueryService,
+    CommentQueryService,
+  ],
+  exports: [
+    TypeOrmModule,
+    ArticleRepository,
+    CommentRepository,
+    CategoryRepository,
+    ArticleQueryService,
+    CommentQueryService,
+  ],
 })
 export class BlogModule {}
