@@ -74,6 +74,8 @@ export function initGraphQLSchema(): {
       'PaginationMode',
       'SortDirection',
       'MagicItemType',
+      'ArticleStatus',
+      'CommentStatus',
     ];
 
     // 生成 Schema 指纹

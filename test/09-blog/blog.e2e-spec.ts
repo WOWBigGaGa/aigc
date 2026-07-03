@@ -12,6 +12,7 @@ import { ArticleTagEntity } from '@src/modules/blog/entities/article-tag.entity'
 import { ArticleRepository } from '@src/modules/blog/repositories/article.repository';
 import { CategoryRepository } from '@src/modules/blog/repositories/category.repository';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
+import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
 import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
@@ -23,6 +24,7 @@ describe('Blog Module (e2e)', () => {
   let articleRepository: ArticleRepository;
   let categoryRepository: CategoryRepository;
   let commentRepository: CommentRepository;
+  let tagRepository: TagRepository;
   let articleQueryService: ArticleQueryService;
   let commentQueryService: CommentQueryService;
 
@@ -30,6 +32,7 @@ describe('Blog Module (e2e)', () => {
   let seededArticleIds: string[] = [];
   let seededCategoryIds: string[] = [];
   let seededCommentIds: string[] = [];
+  let seededTagIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -54,6 +57,7 @@ describe('Blog Module (e2e)', () => {
     articleRepository = app.get(ArticleRepository);
     categoryRepository = app.get(CategoryRepository);
     commentRepository = app.get(CommentRepository);
+    tagRepository = app.get(TagRepository);
     articleQueryService = app.get(ArticleQueryService);
     commentQueryService = app.get(CommentQueryService);
 
@@ -493,6 +497,164 @@ describe('Blog Module (e2e)', () => {
     });
   });
 
+  describe('TagRepository', () => {
+    it('should create, find, update and delete tag', async () => {
+      const tagData = {
+        name: `${testPrefix}Test Tag`,
+        slug: `${testPrefix}test-tag`,
+      };
+
+      const created = await tagRepository.create(tagData);
+      seededTagIds.push(created.id);
+
+      expect(created.id).toBeDefined();
+      expect(created.name).toBe(tagData.name);
+      expect(created.slug).toBe(tagData.slug);
+
+      const found = await tagRepository.findById(created.id);
+      expect(found).not.toBeNull();
+      expect(found?.name).toBe(tagData.name);
+
+      const updated = await tagRepository.update(created.id, {
+        name: `${testPrefix}Updated Tag`,
+      });
+      expect(updated.name).toBe(`${testPrefix}Updated Tag`);
+
+      await tagRepository.delete(created.id);
+
+      const deleted = await tagRepository.findById(created.id);
+      expect(deleted).toBeNull();
+    });
+
+    it('should add tags to article', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Tagged Article`,
+        content: 'Content',
+        summary: 'Tagged article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const tag = await tagRepository.create({
+        name: `${testPrefix}Test Tag`,
+        slug: `${testPrefix}test-tag`,
+      });
+      seededTagIds.push(tag.id);
+
+      await tagRepository.addTagsToArticle(article.id, [tag.id]);
+
+      const foundTags = await tagRepository.findTagsByArticle(article.id);
+      expect(foundTags.length).toBe(1);
+      expect(foundTags[0].id).toBe(tag.id);
+    });
+
+    it('should update article tags', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Tag Update Article`,
+        content: 'Content',
+        summary: 'Tag update test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const tag1 = await tagRepository.create({
+        name: `${testPrefix}Tag 1`,
+        slug: `${testPrefix}tag-1`,
+      });
+      const tag2 = await tagRepository.create({
+        name: `${testPrefix}Tag 2`,
+        slug: `${testPrefix}tag-2`,
+      });
+      const tag3 = await tagRepository.create({
+        name: `${testPrefix}Tag 3`,
+        slug: `${testPrefix}tag-3`,
+      });
+      seededTagIds.push(tag1.id, tag2.id, tag3.id);
+
+      await tagRepository.updateArticleTags(article.id, [tag1.id, tag2.id]);
+      let tags = await tagRepository.findTagsByArticle(article.id);
+      expect(tags.length).toBe(2);
+
+      await tagRepository.updateArticleTags(article.id, [tag2.id, tag3.id]);
+      tags = await tagRepository.findTagsByArticle(article.id);
+      expect(tags.length).toBe(2);
+      expect(tags.some((t) => t.id === tag2.id)).toBe(true);
+      expect(tags.some((t) => t.id === tag3.id)).toBe(true);
+    });
+  });
+
+  describe('ArticleQueryService - Aggregate', () => {
+    it('should get archives', async () => {
+      await Promise.all(
+        Array.from({ length: 3 }).map((_, i) =>
+          articleRepository.create({
+            title: `${testPrefix}Archive Article ${i}`,
+            content: 'Content',
+            summary: `Archive article ${i}`,
+            authorId: 'test-author-id',
+            status: ArticleStatus.PUBLISHED,
+            viewCount: 0,
+            likeCount: 0,
+            isPinned: false,
+            publishedAt: new Date(),
+          }),
+        ),
+      ).then((articles) => seededArticleIds.push(...articles.map((a) => a.id)));
+
+      const result = await articleQueryService.getArchives();
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThanOrEqual(1);
+      expect(result[0].year).toBeDefined();
+      expect(result[0].month).toBeDefined();
+      expect(result[0].count).toBeDefined();
+    });
+
+    it('should get category stats', async () => {
+      const category = await categoryRepository.create({
+        name: `${testPrefix}Stats Category`,
+        slug: `${testPrefix}stats-category`,
+        sort: 0,
+        parentId: null,
+      });
+      seededCategoryIds.push(category.id);
+
+      await Promise.all(
+        Array.from({ length: 2 }).map((_, i) =>
+          articleRepository.create({
+            title: `${testPrefix}Category Stats Article ${i}`,
+            content: 'Content',
+            summary: `Article ${i}`,
+            authorId: 'test-author-id',
+            status: ArticleStatus.PUBLISHED,
+            viewCount: 0,
+            likeCount: 0,
+            isPinned: false,
+            categoryId: category.id,
+            publishedAt: new Date(),
+          }),
+        ),
+      ).then((articles) => seededArticleIds.push(...articles.map((a) => a.id)));
+
+      const result = await articleQueryService.getCategoryStats();
+
+      expect(Array.isArray(result)).toBe(true);
+      const found = result.find((stat) => stat.categoryId === category.id);
+      expect(found).toBeDefined();
+      expect(found?.count).toBe(2);
+    });
+  });
+
   async function cleanupSeededData(): Promise<void> {
     if (seededCommentIds.length > 0) {
       await dataSource.getRepository(CommentEntity).delete({ id: In(seededCommentIds) });
@@ -510,9 +672,16 @@ describe('Blog Module (e2e)', () => {
       seededCategoryIds = [];
     }
 
+    if (seededTagIds.length > 0) {
+      await dataSource.getRepository(TagEntity).delete({ id: In(seededTagIds) });
+      seededTagIds = [];
+    }
+
     await dataSource.getRepository(CommentEntity).delete({ authorEmail: Like(`${testPrefix}%`) });
     await dataSource.getRepository(ArticleEntity).delete({ title: Like(`${testPrefix}%`) });
     await dataSource.getRepository(CategoryEntity).delete({ name: Like(`${testPrefix}%`) });
     await dataSource.getRepository(CategoryEntity).delete({ slug: Like(`${testPrefix}%`) });
+    await dataSource.getRepository(TagEntity).delete({ name: Like(`${testPrefix}%`) });
+    await dataSource.getRepository(TagEntity).delete({ slug: Like(`${testPrefix}%`) });
   }
 });

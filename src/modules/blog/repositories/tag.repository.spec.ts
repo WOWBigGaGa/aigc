@@ -258,7 +258,7 @@ describe('TagRepository', () => {
         groupBy: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([{ tagId: 'tag-1', articleCount: '5' }]),
+        getRawMany: jest.fn().mockResolvedValue([{ tagId: 'tag-1', articleCount: 5 }]),
       };
       articleTagTypeOrmRepository.createQueryBuilder.mockReturnValue(queryBuilder);
       tagTypeOrmRepository.find.mockResolvedValue([mockTag]);

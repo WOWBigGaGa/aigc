@@ -26,6 +26,7 @@ import {
   MagicItemCraftTaskStatus,
   MagicItemQualityLevel,
 } from '@src/modules/magic-workshop/magic-workshop.types';
+import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
 
 export function registerEnums(): void {
   registerEnumType(AccountStatus, { name: 'AccountStatus' });
@@ -48,4 +49,6 @@ export function registerEnums(): void {
   registerEnumType(MagicItemType, { name: 'MagicItemType' });
   registerEnumType(MagicItemCraftTaskStatus, { name: 'MagicItemCraftTaskStatus' });
   registerEnumType(MagicItemQualityLevel, { name: 'MagicItemQualityLevel' });
+  registerEnumType(ArticleStatus, { name: 'ArticleStatus' });
+  registerEnumType(CommentStatus, { name: 'CommentStatus' });
 }
