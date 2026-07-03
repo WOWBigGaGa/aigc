@@ -1,0 +1,9 @@
+export { CreateArticleInput } from './create-article.input';
+export { UpdateArticleInput } from './update-article.input';
+export { CreateCategoryInput } from './create-category.input';
+export { UpdateCategoryInput } from './update-category.input';
+export { CreateTagInput } from './create-tag.input';
+export { UpdateTagInput } from './update-tag.input';
+export { CreateCommentInput } from './create-comment.input';
+export { ArticleFilterInput } from './article-filter.input';
+export { PaginationInput } from './pagination.input';

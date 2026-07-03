@@ -27,13 +27,16 @@ export class CommentQueryService {
       const tree = this.buildCommentTree(result.items);
 
       const totalPages = Math.ceil(result.total / limit);
+      const hasNext = page < totalPages;
 
       return {
         items: tree,
         total: result.total,
         page,
-        limit,
-        totalPages,
+        pageSize: limit,
+        pageInfo: {
+          hasNext,
+        },
       };
     } catch (error) {
       if (error instanceof DomainError) {
@@ -62,13 +65,16 @@ export class CommentQueryService {
 
       const items = result.items.map((entity) => this.mapToView(entity));
       const totalPages = Math.ceil(result.total / limit);
+      const hasNext = page < totalPages;
 
       return {
         items,
         total: result.total,
         page,
-        limit,
-        totalPages,
+        pageSize: limit,
+        pageInfo: {
+          hasNext,
+        },
       };
     } catch (error) {
       if (error instanceof DomainError) {

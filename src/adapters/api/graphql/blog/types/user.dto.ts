@@ -17,9 +17,6 @@ export class UserDTO {
   @Field(() => String, { nullable: true, description: '个人简介' })
   bio!: string | null;
 
-  @Field({ description: '邮箱' })
-  email!: string;
-
   @Field(() => Date, { description: '创建时间' })
   createdAt!: Date;
 

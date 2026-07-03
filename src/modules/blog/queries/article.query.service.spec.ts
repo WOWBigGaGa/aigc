@@ -98,8 +98,10 @@ describe('ArticleQueryService', () => {
         ],
         total: 1,
         page: 1,
-        limit: 10,
-        totalPages: 1,
+        pageSize: 10,
+        pageInfo: {
+          hasNext: false,
+        },
       });
       expect(articleRepository.findPublishedWithPagination).toHaveBeenCalledWith(1, 10);
     });

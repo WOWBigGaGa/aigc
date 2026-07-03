@@ -151,12 +151,17 @@ export interface PaginationInput {
 }
 
 // 分页结果
+export interface PageInfo {
+  hasNext: boolean;
+  nextCursor?: string;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   total: number;
   page: number;
-  limit: number;
-  totalPages: number;
+  pageSize: number;
+  pageInfo: PageInfo;
 }
 
 // 文章视图（用于 QueryService 输出）
