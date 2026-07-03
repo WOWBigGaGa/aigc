@@ -123,6 +123,17 @@ export interface UpdateArticleInput {
   status?: ArticleStatus;
 }
 
+export interface ArticleUpdateData {
+  title?: string;
+  content?: string;
+  coverImage?: string | null;
+  summary?: string;
+  categoryId?: string | null;
+  isPinned?: boolean;
+  status?: ArticleStatus;
+  publishedAt?: Date | null;
+}
+
 export interface CreateCommentInput {
   articleId: string;
   authorName: string;
@@ -139,8 +150,21 @@ export interface CreateCategoryInput {
   sort?: number;
 }
 
+export interface UpdateCategoryInput {
+  name?: string;
+  slug?: string;
+  description?: string;
+  parentId?: string | null;
+  sort?: number;
+}
+
 export interface CreateTagInput {
   name: string;
+  slug?: string;
+}
+
+export interface UpdateTagInput {
+  name?: string;
   slug?: string;
 }
 

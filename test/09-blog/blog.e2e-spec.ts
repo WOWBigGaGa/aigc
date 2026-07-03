@@ -15,6 +15,18 @@ import { CommentRepository } from '@src/modules/blog/repositories/comment.reposi
 import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
+import { CreateArticleUsecase } from '@src/usecases/blog/create-article.usecase';
+import { UpdateArticleUsecase } from '@src/usecases/blog/update-article.usecase';
+import { DeleteArticleUsecase } from '@src/usecases/blog/delete-article.usecase';
+import { CreateCategoryUsecase } from '@src/usecases/blog/create-category.usecase';
+import { UpdateCategoryUsecase } from '@src/usecases/blog/update-category.usecase';
+import { DeleteCategoryUsecase } from '@src/usecases/blog/delete-category.usecase';
+import { CreateTagUsecase } from '@src/usecases/blog/create-tag.usecase';
+import { UpdateTagUsecase } from '@src/usecases/blog/update-tag.usecase';
+import { DeleteTagUsecase } from '@src/usecases/blog/delete-tag.usecase';
+import { CreateCommentUsecase } from '@src/usecases/blog/create-comment.usecase';
+import { UpdateCommentStatusUsecase } from '@src/usecases/blog/update-comment-status.usecase';
+import { DeleteCommentUsecase } from '@src/usecases/blog/delete-comment.usecase';
 import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
 import { DataSource, In, Like } from 'typeorm';
 
@@ -27,6 +39,18 @@ describe('Blog Module (e2e)', () => {
   let tagRepository: TagRepository;
   let articleQueryService: ArticleQueryService;
   let commentQueryService: CommentQueryService;
+  let createArticleUsecase: CreateArticleUsecase;
+  let updateArticleUsecase: UpdateArticleUsecase;
+  let deleteArticleUsecase: DeleteArticleUsecase;
+  let createCategoryUsecase: CreateCategoryUsecase;
+  let updateCategoryUsecase: UpdateCategoryUsecase;
+  let deleteCategoryUsecase: DeleteCategoryUsecase;
+  let createTagUsecase: CreateTagUsecase;
+  let updateTagUsecase: UpdateTagUsecase;
+  let deleteTagUsecase: DeleteTagUsecase;
+  let createCommentUsecase: CreateCommentUsecase;
+  let updateCommentStatusUsecase: UpdateCommentStatusUsecase;
+  let deleteCommentUsecase: DeleteCommentUsecase;
 
   const testPrefix = 'E2E_BLOG_';
   let seededArticleIds: string[] = [];
@@ -60,6 +84,39 @@ describe('Blog Module (e2e)', () => {
     tagRepository = app.get(TagRepository);
     articleQueryService = app.get(ArticleQueryService);
     commentQueryService = app.get(CommentQueryService);
+
+    const usecaseModule = await Test.createTestingModule({
+      imports: [AppConfigModule, DatabaseModule, BlogModule],
+      providers: [
+        CreateArticleUsecase,
+        UpdateArticleUsecase,
+        DeleteArticleUsecase,
+        CreateCategoryUsecase,
+        UpdateCategoryUsecase,
+        DeleteCategoryUsecase,
+        CreateTagUsecase,
+        UpdateTagUsecase,
+        DeleteTagUsecase,
+        CreateCommentUsecase,
+        UpdateCommentStatusUsecase,
+        DeleteCommentUsecase,
+      ],
+    }).compile();
+
+    createArticleUsecase = usecaseModule.get<CreateArticleUsecase>(CreateArticleUsecase);
+    updateArticleUsecase = usecaseModule.get<UpdateArticleUsecase>(UpdateArticleUsecase);
+    deleteArticleUsecase = usecaseModule.get<DeleteArticleUsecase>(DeleteArticleUsecase);
+    createCategoryUsecase = usecaseModule.get<CreateCategoryUsecase>(CreateCategoryUsecase);
+    updateCategoryUsecase = usecaseModule.get<UpdateCategoryUsecase>(UpdateCategoryUsecase);
+    deleteCategoryUsecase = usecaseModule.get<DeleteCategoryUsecase>(DeleteCategoryUsecase);
+    createTagUsecase = usecaseModule.get<CreateTagUsecase>(CreateTagUsecase);
+    updateTagUsecase = usecaseModule.get<UpdateTagUsecase>(UpdateTagUsecase);
+    deleteTagUsecase = usecaseModule.get<DeleteTagUsecase>(DeleteTagUsecase);
+    createCommentUsecase = usecaseModule.get<CreateCommentUsecase>(CreateCommentUsecase);
+    updateCommentStatusUsecase = usecaseModule.get<UpdateCommentStatusUsecase>(
+      UpdateCommentStatusUsecase,
+    );
+    deleteCommentUsecase = usecaseModule.get<DeleteCommentUsecase>(DeleteCommentUsecase);
 
     await cleanupSeededData();
   });
@@ -652,6 +709,160 @@ describe('Blog Module (e2e)', () => {
       const found = result.find((stat) => stat.categoryId === category.id);
       expect(found).toBeDefined();
       expect(found?.count).toBe(2);
+    });
+  });
+
+  describe('Blog Usecases', () => {
+    describe('Article Usecases', () => {
+      it('should create, update and delete article', async () => {
+        const created = await createArticleUsecase.execute({
+          input: {
+            title: `${testPrefix}Usecase Article`,
+            content: '# Usecase Test',
+            summary: 'Usecase test article',
+          },
+          authorId: 'test-author-id',
+        });
+        seededArticleIds.push(created.id);
+
+        expect(created.id).toBeDefined();
+        expect(created.title).toBe(`${testPrefix}Usecase Article`);
+        expect(created.status).toBe(ArticleStatus.DRAFT);
+
+        const updated = await updateArticleUsecase.execute({
+          id: created.id,
+          input: { title: `${testPrefix}Updated Usecase Article` },
+        });
+        expect(updated.title).toBe(`${testPrefix}Updated Usecase Article`);
+
+        const published = await updateArticleUsecase.execute({
+          id: created.id,
+          input: { status: ArticleStatus.PUBLISHED },
+        });
+        expect(published.status).toBe(ArticleStatus.PUBLISHED);
+        expect(published.publishedAt).not.toBeNull();
+
+        await deleteArticleUsecase.execute({ id: created.id });
+
+        const deleted = await articleRepository.findById(created.id);
+        expect(deleted).toBeNull();
+      });
+    });
+
+    describe('Category Usecases', () => {
+      it('should create, update and delete category', async () => {
+        const created = await createCategoryUsecase.execute({
+          input: {
+            name: `${testPrefix}Usecase Category`,
+            slug: `${testPrefix}usecase-category`,
+          },
+        });
+        seededCategoryIds.push(created.id);
+
+        expect(created.id).toBeDefined();
+        expect(created.name).toBe(`${testPrefix}Usecase Category`);
+
+        const updated = await updateCategoryUsecase.execute({
+          id: created.id,
+          input: { name: `${testPrefix}Updated Usecase Category` },
+        });
+        expect(updated.name).toBe(`${testPrefix}Updated Usecase Category`);
+
+        await deleteCategoryUsecase.execute({ id: created.id });
+
+        const deleted = await categoryRepository.findById(created.id);
+        expect(deleted).toBeNull();
+      });
+
+      it('should throw error when creating category with existing slug', async () => {
+        await categoryRepository.create({
+          name: `${testPrefix}Existing Category`,
+          slug: `${testPrefix}existing-slug`,
+          sort: 0,
+          parentId: null,
+        });
+
+        await expect(
+          createCategoryUsecase.execute({
+            input: { name: `${testPrefix}New Category`, slug: `${testPrefix}existing-slug` },
+          }),
+        ).rejects.toThrow();
+      });
+    });
+
+    describe('Tag Usecases', () => {
+      it('should create, update and delete tag', async () => {
+        const created = await createTagUsecase.execute({
+          input: { name: `${testPrefix}Usecase Tag` },
+        });
+        seededTagIds.push(created.id);
+
+        expect(created.id).toBeDefined();
+        expect(created.name).toBe(`${testPrefix}Usecase Tag`);
+
+        const updated = await updateTagUsecase.execute({
+          id: created.id,
+          input: { name: `${testPrefix}Updated Usecase Tag` },
+        });
+        expect(updated.name).toBe(`${testPrefix}Updated Usecase Tag`);
+
+        await deleteTagUsecase.execute({ id: created.id });
+
+        const deleted = await tagRepository.findById(created.id);
+        expect(deleted).toBeNull();
+      });
+
+      it('should throw error when creating tag with existing name', async () => {
+        await tagRepository.create({
+          name: `${testPrefix}Existing Tag`,
+          slug: `${testPrefix}existing-tag`,
+        });
+
+        await expect(
+          createTagUsecase.execute({ input: { name: `${testPrefix}Existing Tag` } }),
+        ).rejects.toThrow();
+      });
+    });
+
+    describe('Comment Usecases', () => {
+      it('should create, update status and delete comment', async () => {
+        const article = await articleRepository.create({
+          title: `${testPrefix}Comment Usecase Article`,
+          content: 'Content',
+          summary: 'Comment usecase test',
+          authorId: 'test-author-id',
+          status: ArticleStatus.PUBLISHED,
+          viewCount: 0,
+          likeCount: 0,
+          isPinned: false,
+          publishedAt: new Date(),
+        });
+        seededArticleIds.push(article.id);
+
+        const created = await createCommentUsecase.execute({
+          input: {
+            articleId: article.id,
+            authorName: 'Usecase Author',
+            authorEmail: 'usecase@example.com',
+            content: 'Usecase comment',
+          },
+        });
+        seededCommentIds.push(created.id);
+
+        expect(created.id).toBeDefined();
+        expect(created.status).toBe(CommentStatus.PENDING);
+
+        const approved = await updateCommentStatusUsecase.execute({
+          id: created.id,
+          status: CommentStatus.APPROVED,
+        });
+        expect(approved.status).toBe(CommentStatus.APPROVED);
+
+        await deleteCommentUsecase.execute({ id: created.id });
+
+        const deleted = await commentRepository.findById(created.id);
+        expect(deleted).toBeNull();
+      });
     });
   });
 

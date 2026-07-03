@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Like, Repository } from 'typeorm';
 import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
 import { ArticleEntity } from '../entities/article.entity';
-import { ArticleStatus } from '../blog.types';
+import { ArticleStatus, ArticleUpdateData } from '../blog.types';
 
 /**
  * 文章仓库
@@ -280,7 +280,7 @@ export class ArticleRepository {
    */
   async update(
     id: string,
-    updates: Partial<ArticleEntity>,
+    updates: ArticleUpdateData,
     transactionContext?: PersistenceTransactionContext,
   ): Promise<ArticleEntity> {
     try {
