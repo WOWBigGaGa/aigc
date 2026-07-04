@@ -183,6 +183,82 @@ export class CommentRepository {
     }
   }
 
+  /**
+   * 查询指定评论的所有子评论（递归查询）
+   */
+  async findChildrenRecursively(
+    parentId: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<CommentEntity[]> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      const children = await repository.find({
+        where: { parentId, deletedAt: IsNull() },
+      });
+
+      const allChildren: CommentEntity[] = [];
+      for (const child of children) {
+        allChildren.push(child);
+        const grandchildren = await this.findChildrenRecursively(child.id, transactionContext);
+        allChildren.push(...grandchildren);
+      }
+
+      return allChildren;
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '查询子评论失败',
+        {
+          parentId,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 查询评论的层级深度
+   */
+  async getCommentDepth(
+    commentId: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<number> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      let depth = 0;
+      let currentId = commentId;
+
+      while (currentId) {
+        const comment = await repository.findOne({
+          where: { id: currentId, deletedAt: IsNull() },
+          select: { parentId: true },
+        });
+        if (!comment) {
+          break;
+        }
+        if (comment.parentId) {
+          depth++;
+          currentId = comment.parentId;
+        } else {
+          break;
+        }
+      }
+
+      return depth;
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '查询评论层级失败',
+        {
+          commentId,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
   private getRepository(
     transactionContext?: PersistenceTransactionContext,
   ): Repository<CommentEntity> {

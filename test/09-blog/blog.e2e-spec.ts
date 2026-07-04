@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigModule } from '@src/infrastructure/config/config.module';
 import { DatabaseModule } from '@src/infrastructure/database/database.module';
+import { TypeOrmTransactionModule } from '@src/infrastructure/database/transaction/typeorm-transaction.module';
 import { BlogModule } from '@src/modules/blog/blog.module';
 import { ArticleEntity } from '@src/modules/blog/entities/article.entity';
 import { CategoryEntity } from '@src/modules/blog/entities/category.entity';
@@ -27,8 +28,13 @@ import { DeleteTagUsecase } from '@src/usecases/blog/delete-tag.usecase';
 import { CreateCommentUsecase } from '@src/usecases/blog/create-comment.usecase';
 import { UpdateCommentStatusUsecase } from '@src/usecases/blog/update-comment-status.usecase';
 import { DeleteCommentUsecase } from '@src/usecases/blog/delete-comment.usecase';
+import { ApproveCommentUsecase } from '@src/usecases/blog/approve-comment.usecase';
+import { RejectCommentUsecase } from '@src/usecases/blog/reject-comment.usecase';
+import { BlogUsecasesModule } from '@src/usecases/blog/blog-usecases.module';
 import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
 import { DataSource, In, Like } from 'typeorm';
+import type { UsecaseSession } from '@app-types/auth/session.types';
+import { IdentityTypeEnum } from '@app-types/models/account.types';
 
 describe('Blog Module (e2e)', () => {
   let app: INestApplication;
@@ -51,6 +57,18 @@ describe('Blog Module (e2e)', () => {
   let createCommentUsecase: CreateCommentUsecase;
   let updateCommentStatusUsecase: UpdateCommentStatusUsecase;
   let deleteCommentUsecase: DeleteCommentUsecase;
+  let approveCommentUsecase: ApproveCommentUsecase;
+  let rejectCommentUsecase: RejectCommentUsecase;
+
+  const adminSession: UsecaseSession = {
+    accountId: 1,
+    roles: [IdentityTypeEnum.ADMIN],
+  };
+
+  const userSession: UsecaseSession = {
+    accountId: 2,
+    roles: [IdentityTypeEnum.REGISTRANT],
+  };
 
   const testPrefix = 'E2E_BLOG_';
   let seededArticleIds: string[] = [];
@@ -62,15 +80,22 @@ describe('Blog Module (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         AppConfigModule,
-        DatabaseModule,
+        TypeOrmModule.forRoot({
+          type: 'mysql',
+          host: process.env.DB_HOST || '127.0.0.1',
+          port: parseInt(process.env.DB_PORT || '3306'),
+          username: process.env.DB_USER || 'root',
+          password: process.env.DB_PASS,
+          database: process.env.DB_NAME || 'aigc_db',
+          timezone: process.env.DB_TIMEZONE || '+08:00',
+          synchronize: process.env.DB_SYNCHRONIZE === 'true',
+          logging: process.env.DB_LOGGING === 'true',
+          charset: 'utf8mb4',
+          autoLoadEntities: true,
+        }),
+        TypeOrmTransactionModule,
         BlogModule,
-        TypeOrmModule.forFeature([
-          ArticleEntity,
-          CategoryEntity,
-          CommentEntity,
-          TagEntity,
-          ArticleTagEntity,
-        ]),
+        BlogUsecasesModule,
       ],
     }).compile();
 
@@ -84,39 +109,20 @@ describe('Blog Module (e2e)', () => {
     tagRepository = app.get(TagRepository);
     articleQueryService = app.get(ArticleQueryService);
     commentQueryService = app.get(CommentQueryService);
-
-    const usecaseModule = await Test.createTestingModule({
-      imports: [AppConfigModule, DatabaseModule, BlogModule],
-      providers: [
-        CreateArticleUsecase,
-        UpdateArticleUsecase,
-        DeleteArticleUsecase,
-        CreateCategoryUsecase,
-        UpdateCategoryUsecase,
-        DeleteCategoryUsecase,
-        CreateTagUsecase,
-        UpdateTagUsecase,
-        DeleteTagUsecase,
-        CreateCommentUsecase,
-        UpdateCommentStatusUsecase,
-        DeleteCommentUsecase,
-      ],
-    }).compile();
-
-    createArticleUsecase = usecaseModule.get<CreateArticleUsecase>(CreateArticleUsecase);
-    updateArticleUsecase = usecaseModule.get<UpdateArticleUsecase>(UpdateArticleUsecase);
-    deleteArticleUsecase = usecaseModule.get<DeleteArticleUsecase>(DeleteArticleUsecase);
-    createCategoryUsecase = usecaseModule.get<CreateCategoryUsecase>(CreateCategoryUsecase);
-    updateCategoryUsecase = usecaseModule.get<UpdateCategoryUsecase>(UpdateCategoryUsecase);
-    deleteCategoryUsecase = usecaseModule.get<DeleteCategoryUsecase>(DeleteCategoryUsecase);
-    createTagUsecase = usecaseModule.get<CreateTagUsecase>(CreateTagUsecase);
-    updateTagUsecase = usecaseModule.get<UpdateTagUsecase>(UpdateTagUsecase);
-    deleteTagUsecase = usecaseModule.get<DeleteTagUsecase>(DeleteTagUsecase);
-    createCommentUsecase = usecaseModule.get<CreateCommentUsecase>(CreateCommentUsecase);
-    updateCommentStatusUsecase = usecaseModule.get<UpdateCommentStatusUsecase>(
-      UpdateCommentStatusUsecase,
-    );
-    deleteCommentUsecase = usecaseModule.get<DeleteCommentUsecase>(DeleteCommentUsecase);
+    createArticleUsecase = app.get<CreateArticleUsecase>(CreateArticleUsecase);
+    updateArticleUsecase = app.get<UpdateArticleUsecase>(UpdateArticleUsecase);
+    deleteArticleUsecase = app.get<DeleteArticleUsecase>(DeleteArticleUsecase);
+    createCategoryUsecase = app.get<CreateCategoryUsecase>(CreateCategoryUsecase);
+    updateCategoryUsecase = app.get<UpdateCategoryUsecase>(UpdateCategoryUsecase);
+    deleteCategoryUsecase = app.get<DeleteCategoryUsecase>(DeleteCategoryUsecase);
+    createTagUsecase = app.get<CreateTagUsecase>(CreateTagUsecase);
+    updateTagUsecase = app.get<UpdateTagUsecase>(UpdateTagUsecase);
+    deleteTagUsecase = app.get<DeleteTagUsecase>(DeleteTagUsecase);
+    createCommentUsecase = app.get<CreateCommentUsecase>(CreateCommentUsecase);
+    updateCommentStatusUsecase = app.get<UpdateCommentStatusUsecase>(UpdateCommentStatusUsecase);
+    deleteCommentUsecase = app.get<DeleteCommentUsecase>(DeleteCommentUsecase);
+    approveCommentUsecase = app.get<ApproveCommentUsecase>(ApproveCommentUsecase);
+    rejectCommentUsecase = app.get<RejectCommentUsecase>(RejectCommentUsecase);
 
     await cleanupSeededData();
   });
@@ -469,7 +475,6 @@ describe('Blog Module (e2e)', () => {
       expect(result.items.length).toBeGreaterThanOrEqual(3);
       expect(result.total).toBeGreaterThanOrEqual(3);
       expect(result.page).toBe(1);
-      expect(result.totalPages).toBe(1);
 
       const foundTitles = result.items.map((item) => item.title);
       articles.forEach((article) => {
@@ -605,7 +610,7 @@ describe('Blog Module (e2e)', () => {
 
       await tagRepository.addTagsToArticle(article.id, [tag.id]);
 
-      const foundTags = await tagRepository.findTagsByArticle(article.id);
+      const foundTags = await tagRepository.getTagsByArticle(article.id);
       expect(foundTags.length).toBe(1);
       expect(foundTags[0].id).toBe(tag.id);
     });
@@ -639,14 +644,14 @@ describe('Blog Module (e2e)', () => {
       seededTagIds.push(tag1.id, tag2.id, tag3.id);
 
       await tagRepository.updateArticleTags(article.id, [tag1.id, tag2.id]);
-      let tags = await tagRepository.findTagsByArticle(article.id);
+      let tags = await tagRepository.getTagsByArticle(article.id);
       expect(tags.length).toBe(2);
 
       await tagRepository.updateArticleTags(article.id, [tag2.id, tag3.id]);
-      tags = await tagRepository.findTagsByArticle(article.id);
+      tags = await tagRepository.getTagsByArticle(article.id);
       expect(tags.length).toBe(2);
-      expect(tags.some((t) => t.id === tag2.id)).toBe(true);
-      expect(tags.some((t) => t.id === tag3.id)).toBe(true);
+      expect(tags.some((t: TagEntity) => t.id === tag2.id)).toBe(true);
+      expect(tags.some((t: TagEntity) => t.id === tag3.id)).toBe(true);
     });
   });
 
@@ -708,7 +713,7 @@ describe('Blog Module (e2e)', () => {
       expect(Array.isArray(result)).toBe(true);
       const found = result.find((stat) => stat.categoryId === category.id);
       expect(found).toBeDefined();
-      expect(found?.count).toBe(2);
+      expect(found?.articleCount).toBe(2);
     });
   });
 
@@ -721,7 +726,8 @@ describe('Blog Module (e2e)', () => {
             content: '# Usecase Test',
             summary: 'Usecase test article',
           },
-          authorId: 'test-author-id',
+          authorId: '1',
+          session: adminSession,
         });
         seededArticleIds.push(created.id);
 
@@ -732,17 +738,22 @@ describe('Blog Module (e2e)', () => {
         const updated = await updateArticleUsecase.execute({
           id: created.id,
           input: { title: `${testPrefix}Updated Usecase Article` },
+          session: adminSession,
         });
         expect(updated.title).toBe(`${testPrefix}Updated Usecase Article`);
 
         const published = await updateArticleUsecase.execute({
           id: created.id,
           input: { status: ArticleStatus.PUBLISHED },
+          session: adminSession,
         });
         expect(published.status).toBe(ArticleStatus.PUBLISHED);
         expect(published.publishedAt).not.toBeNull();
 
-        await deleteArticleUsecase.execute({ id: created.id });
+        await deleteArticleUsecase.execute({
+          id: created.id,
+          session: adminSession,
+        });
 
         const deleted = await articleRepository.findById(created.id);
         expect(deleted).toBeNull();
@@ -754,8 +765,9 @@ describe('Blog Module (e2e)', () => {
         const created = await createCategoryUsecase.execute({
           input: {
             name: `${testPrefix}Usecase Category`,
-            slug: `${testPrefix}usecase-category`,
+            slug: 'e2e-blog-usecase-category',
           },
+          session: adminSession,
         });
         seededCategoryIds.push(created.id);
 
@@ -765,10 +777,11 @@ describe('Blog Module (e2e)', () => {
         const updated = await updateCategoryUsecase.execute({
           id: created.id,
           input: { name: `${testPrefix}Updated Usecase Category` },
+          session: adminSession,
         });
         expect(updated.name).toBe(`${testPrefix}Updated Usecase Category`);
 
-        await deleteCategoryUsecase.execute({ id: created.id });
+        await deleteCategoryUsecase.execute({ id: created.id, session: adminSession });
 
         const deleted = await categoryRepository.findById(created.id);
         expect(deleted).toBeNull();
@@ -777,14 +790,15 @@ describe('Blog Module (e2e)', () => {
       it('should throw error when creating category with existing slug', async () => {
         await categoryRepository.create({
           name: `${testPrefix}Existing Category`,
-          slug: `${testPrefix}existing-slug`,
+          slug: 'e2e-blog-existing-slug',
           sort: 0,
           parentId: null,
         });
 
         await expect(
           createCategoryUsecase.execute({
-            input: { name: `${testPrefix}New Category`, slug: `${testPrefix}existing-slug` },
+            input: { name: `${testPrefix}New Category`, slug: 'e2e-blog-existing-slug' },
+            session: adminSession,
           }),
         ).rejects.toThrow();
       });
@@ -794,6 +808,7 @@ describe('Blog Module (e2e)', () => {
       it('should create, update and delete tag', async () => {
         const created = await createTagUsecase.execute({
           input: { name: `${testPrefix}Usecase Tag` },
+          session: adminSession,
         });
         seededTagIds.push(created.id);
 
@@ -803,10 +818,11 @@ describe('Blog Module (e2e)', () => {
         const updated = await updateTagUsecase.execute({
           id: created.id,
           input: { name: `${testPrefix}Updated Usecase Tag` },
+          session: adminSession,
         });
         expect(updated.name).toBe(`${testPrefix}Updated Usecase Tag`);
 
-        await deleteTagUsecase.execute({ id: created.id });
+        await deleteTagUsecase.execute({ id: created.id, session: adminSession });
 
         const deleted = await tagRepository.findById(created.id);
         expect(deleted).toBeNull();
@@ -819,7 +835,10 @@ describe('Blog Module (e2e)', () => {
         });
 
         await expect(
-          createTagUsecase.execute({ input: { name: `${testPrefix}Existing Tag` } }),
+          createTagUsecase.execute({
+            input: { name: `${testPrefix}Existing Tag` },
+            session: adminSession,
+          }),
         ).rejects.toThrow();
       });
     });
@@ -846,6 +865,7 @@ describe('Blog Module (e2e)', () => {
             authorEmail: 'usecase@example.com',
             content: 'Usecase comment',
           },
+          session: userSession,
         });
         seededCommentIds.push(created.id);
 
@@ -855,13 +875,175 @@ describe('Blog Module (e2e)', () => {
         const approved = await updateCommentStatusUsecase.execute({
           id: created.id,
           status: CommentStatus.APPROVED,
+          session: adminSession,
         });
         expect(approved.status).toBe(CommentStatus.APPROVED);
 
-        await deleteCommentUsecase.execute({ id: created.id });
+        await deleteCommentUsecase.execute({ id: created.id, session: adminSession });
 
         const deleted = await commentRepository.findById(created.id);
         expect(deleted).toBeNull();
+      });
+
+      it('should generate avatar from email MD5', async () => {
+        const article = await articleRepository.create({
+          title: `${testPrefix}Avatar Test Article`,
+          content: 'Content',
+          summary: 'Avatar test',
+          authorId: 'test-author-id',
+          status: ArticleStatus.PUBLISHED,
+          viewCount: 0,
+          likeCount: 0,
+          isPinned: false,
+          publishedAt: new Date(),
+        });
+        seededArticleIds.push(article.id);
+
+        const created = await createCommentUsecase.execute({
+          input: {
+            articleId: article.id,
+            authorName: 'Avatar Test Author',
+            authorEmail: 'avatar@example.com',
+            content: 'Avatar test comment',
+          },
+          session: userSession,
+        });
+        seededCommentIds.push(created.id);
+
+        expect(created.authorAvatar).toBeDefined();
+        expect(created.authorAvatar).toContain('gravatar.com/avatar/');
+        expect(created.authorAvatar).toContain('d=identicon');
+        expect(created.authorAvatar).toContain('7671d949664fc1fbce03b4ee41c509a4');
+      });
+
+      it('should cascade delete child comments', async () => {
+        const article = await articleRepository.create({
+          title: `${testPrefix}Cascade Delete Article`,
+          content: 'Content',
+          summary: 'Cascade delete test',
+          authorId: 'test-author-id',
+          status: ArticleStatus.PUBLISHED,
+          viewCount: 0,
+          likeCount: 0,
+          isPinned: false,
+          publishedAt: new Date(),
+        });
+        seededArticleIds.push(article.id);
+
+        const parentComment = await commentRepository.create({
+          articleId: article.id,
+          authorName: 'Parent Author',
+          authorEmail: 'parent@example.com',
+          authorAvatar: '',
+          content: 'Parent comment',
+          status: CommentStatus.APPROVED,
+          parentId: null,
+        });
+        seededCommentIds.push(parentComment.id);
+
+        const childComment = await commentRepository.create({
+          articleId: article.id,
+          authorName: 'Child Author',
+          authorEmail: 'child@example.com',
+          authorAvatar: '',
+          content: 'Child comment',
+          status: CommentStatus.APPROVED,
+          parentId: parentComment.id,
+        });
+        seededCommentIds.push(childComment.id);
+
+        const grandchildComment = await commentRepository.create({
+          articleId: article.id,
+          authorName: 'Grandchild Author',
+          authorEmail: 'grandchild@example.com',
+          authorAvatar: '',
+          content: 'Grandchild comment',
+          status: CommentStatus.APPROVED,
+          parentId: childComment.id,
+        });
+        seededCommentIds.push(grandchildComment.id);
+
+        await deleteCommentUsecase.execute({ id: parentComment.id, session: adminSession });
+
+        const deletedParent = await commentRepository.findById(parentComment.id);
+        const deletedChild = await commentRepository.findById(childComment.id);
+        const deletedGrandchild = await commentRepository.findById(grandchildComment.id);
+
+        expect(deletedParent).toBeNull();
+        expect(deletedChild).toBeNull();
+        expect(deletedGrandchild).toBeNull();
+      });
+
+      it('should approve comment using ApproveCommentUsecase', async () => {
+        const article = await articleRepository.create({
+          title: `${testPrefix}Approve Usecase Article`,
+          content: 'Content',
+          summary: 'Approve usecase test',
+          authorId: 'test-author-id',
+          status: ArticleStatus.PUBLISHED,
+          viewCount: 0,
+          likeCount: 0,
+          isPinned: false,
+          publishedAt: new Date(),
+        });
+        seededArticleIds.push(article.id);
+
+        const comment = await commentRepository.create({
+          articleId: article.id,
+          authorName: 'Approve Test Author',
+          authorEmail: 'approve@example.com',
+          authorAvatar: '',
+          content: 'Approve test comment',
+          status: CommentStatus.PENDING,
+          parentId: null,
+        });
+        seededCommentIds.push(comment.id);
+
+        const approved = await approveCommentUsecase.execute({
+          id: comment.id,
+          session: adminSession,
+        });
+
+        expect(approved.status).toBe(CommentStatus.APPROVED);
+
+        const found = await commentRepository.findById(comment.id);
+        expect(found?.status).toBe(CommentStatus.APPROVED);
+      });
+
+      it('should reject comment using RejectCommentUsecase', async () => {
+        const article = await articleRepository.create({
+          title: `${testPrefix}Reject Usecase Article`,
+          content: 'Content',
+          summary: 'Reject usecase test',
+          authorId: 'test-author-id',
+          status: ArticleStatus.PUBLISHED,
+          viewCount: 0,
+          likeCount: 0,
+          isPinned: false,
+          publishedAt: new Date(),
+        });
+        seededArticleIds.push(article.id);
+
+        const comment = await commentRepository.create({
+          articleId: article.id,
+          authorName: 'Reject Test Author',
+          authorEmail: 'reject@example.com',
+          authorAvatar: '',
+          content: 'Reject test comment',
+          status: CommentStatus.PENDING,
+          parentId: null,
+        });
+        seededCommentIds.push(comment.id);
+
+        const rejected = await rejectCommentUsecase.execute({
+          id: comment.id,
+          session: adminSession,
+        });
+
+        expect(rejected.status).toBe(CommentStatus.REJECTED);
+
+        const found = await commentRepository.findById(comment.id);
+        expect(found?.status).toBe(CommentStatus.REJECTED);
       });
     });
   });

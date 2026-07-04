@@ -36,6 +36,14 @@ import { CommentQueryService } from './queries/comment.query.service';
     ArticleQueryService,
     CommentQueryService,
   ],
-  exports: [TypeOrmModule, ArticleQueryService, CommentQueryService],
+  exports: [
+    TypeOrmModule,
+    ArticleRepository,
+    CommentRepository,
+    CategoryRepository,
+    TagRepository,
+    ArticleQueryService,
+    CommentQueryService,
+  ],
 })
 export class BlogModule {}

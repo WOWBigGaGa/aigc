@@ -11,6 +11,7 @@ import {
   Archive,
   CategoryStats,
 } from '../blog.types';
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 
 /**
  * 文章查询服务
@@ -79,9 +80,12 @@ export class ArticleQueryService {
   /**
    * 根据 ID 获取文章
    */
-  async getArticleById(id: string): Promise<ArticleView | null> {
+  async getArticleById(
+    id: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<ArticleView | null> {
     try {
-      const article = await this.articleRepository.findById(id);
+      const article = await this.articleRepository.findById(id, transactionContext);
       return article ? this.mapToView(article) : null;
     } catch (error) {
       if (error instanceof DomainError) {

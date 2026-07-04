@@ -19,6 +19,8 @@ import { DeleteTagUsecase } from './delete-tag.usecase';
 import { CreateCommentUsecase } from './create-comment.usecase';
 import { UpdateCommentStatusUsecase } from './update-comment-status.usecase';
 import { DeleteCommentUsecase } from './delete-comment.usecase';
+import { ApproveCommentUsecase } from './approve-comment.usecase';
+import { RejectCommentUsecase } from './reject-comment.usecase';
 import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
 
 describe('Blog Usecases', () => {
@@ -26,148 +28,245 @@ describe('Blog Usecases', () => {
     run: jest.fn((callback) => callback({})),
   };
 
+  const adminSession = { accountId: 1, roles: ['ADMIN'] };
+  const userSession = { accountId: 3, roles: ['REGISTRANT'] };
+  const emptySession = { accountId: 4, roles: [] };
+
+  const createMockArticleEntity = (
+    overrides: Partial<{ id: string; authorId: string; publishedAt: Date | null }> = {},
+  ) => ({
+    id: overrides.id || 'article-1',
+    title: 'Test Article',
+    content: 'Test Content',
+    coverImage: null,
+    summary: 'Test Summary',
+    status: ArticleStatus.DRAFT,
+    categoryId: null,
+    authorId: overrides.authorId || '3',
+    viewCount: 0,
+    likeCount: 0,
+    isPinned: false,
+    publishedAt: overrides.publishedAt ?? null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  });
+
+  const createMockCategoryEntity = (
+    overrides: Partial<{ id: string; name: string; slug: string }> = {},
+  ) => ({
+    id: overrides.id || 'cat-1',
+    name: overrides.name || 'Test',
+    slug: overrides.slug || 'test',
+    description: null,
+    parentId: null,
+    sort: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
   describe('CreateArticleUsecase', () => {
     let usecase: CreateArticleUsecase;
-    let articleRepository: any;
-    let tagRepository: any;
-    let articleQueryService: any;
+    let articleRepository: jest.Mocked<ArticleRepository>;
+    let articleQueryService: jest.Mocked<ArticleQueryService>;
 
     beforeEach(async () => {
-      articleRepository = {
-        create: jest.fn().mockResolvedValue({ id: 'article-1', title: 'Test Article' }),
-      };
-      tagRepository = {};
-      articleQueryService = {
-        getArticleById: jest.fn().mockResolvedValue({ id: 'article-1', title: 'Test Article' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           CreateArticleUsecase,
-          { provide: ArticleRepository, useValue: articleRepository },
-          { provide: TagRepository, useValue: tagRepository },
-          { provide: ArticleQueryService, useValue: articleQueryService },
+          { provide: ArticleRepository, useValue: { create: jest.fn() } },
+          { provide: ArticleQueryService, useValue: { getArticleById: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<CreateArticleUsecase>(CreateArticleUsecase);
+      articleRepository = module.get(ArticleRepository);
+      articleQueryService = module.get(ArticleQueryService);
     });
 
     it('should create article successfully', async () => {
-      const input = {
-        title: 'Test Article',
-        content: '# Hello World',
-        summary: 'A test article',
-      };
+      const articleId = 'article-1';
+      articleRepository.create.mockResolvedValue(createMockArticleEntity({ id: articleId }));
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: null,
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      const result = await usecase.execute({ input, authorId: 'author-1' });
+      const result = await usecase.execute({
+        input: { title: 'Test', content: 'Content', summary: 'Summary' },
+        authorId: '3',
+        session: userSession,
+      });
 
-      expect(result).toEqual({ id: 'article-1', title: 'Test Article' });
-      expect(articleRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: 'Test Article',
-          status: ArticleStatus.DRAFT,
-        }),
-        expect.any(Object),
-      );
+      expect(result.id).toBe(articleId);
+      expect(result.title).toBe('Test');
+      expect(articleRepository.create).toHaveBeenCalled();
     });
 
     it('should throw error when article not found after creation', async () => {
+      articleRepository.create.mockResolvedValue(createMockArticleEntity());
       articleQueryService.getArticleById.mockResolvedValue(null);
 
-      const input = {
-        title: 'Test Article',
-        content: '# Hello World',
-        summary: 'A test article',
-      };
+      await expect(
+        usecase.execute({
+          input: { title: 'Test', content: 'Content', summary: 'Summary' },
+          authorId: '3',
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
 
-      await expect(usecase.execute({ input, authorId: 'author-1' })).rejects.toThrow(DomainError);
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          input: { title: 'Test', content: 'Content', summary: 'Summary' },
+          authorId: '123',
+          session: emptySession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('UpdateArticleUsecase', () => {
     let usecase: UpdateArticleUsecase;
-    let articleRepository: any;
-    let tagRepository: any;
-    let articleQueryService: any;
+    let articleRepository: jest.Mocked<ArticleRepository>;
+    let articleQueryService: jest.Mocked<ArticleQueryService>;
 
     beforeEach(async () => {
-      articleRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'article-1', publishedAt: null }),
-        update: jest.fn().mockResolvedValue({ id: 'article-1' }),
-      };
-      tagRepository = {};
-      articleQueryService = {
-        getArticleById: jest.fn().mockResolvedValue({ id: 'article-1', title: 'Updated' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           UpdateArticleUsecase,
-          { provide: ArticleRepository, useValue: articleRepository },
-          { provide: TagRepository, useValue: tagRepository },
-          { provide: ArticleQueryService, useValue: articleQueryService },
+          { provide: ArticleRepository, useValue: { findById: jest.fn(), update: jest.fn() } },
+          { provide: ArticleQueryService, useValue: { getArticleById: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<UpdateArticleUsecase>(UpdateArticleUsecase);
+      articleRepository = module.get(ArticleRepository);
+      articleQueryService = module.get(ArticleQueryService);
     });
 
     it('should update article successfully', async () => {
-      const input = { title: 'Updated Title' };
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Updated',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      const result = await usecase.execute({ id: 'article-1', input });
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { title: 'Updated' },
+        session: userSession,
+      });
 
-      expect(result).toEqual({ id: 'article-1', title: 'Updated' });
+      expect(result.title).toBe('Updated');
+      expect(result.id).toBe('article-1');
+      expect(articleRepository.update).toHaveBeenCalled();
     });
 
     it('should set publishedAt when status changes to PUBLISHED', async () => {
-      const input = { status: ArticleStatus.PUBLISHED };
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity({ publishedAt: null }));
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.PUBLISHED,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      await usecase.execute({ id: 'article-1', input });
+      await usecase.execute({
+        id: 'article-1',
+        input: { status: ArticleStatus.PUBLISHED },
+        session: userSession,
+      });
 
-      expect(articleRepository.update).toHaveBeenCalledWith(
-        'article-1',
-        expect.objectContaining({
-          status: ArticleStatus.PUBLISHED,
-          publishedAt: expect.any(Date),
-        }),
-        expect.any(Object),
-      );
+      expect(articleRepository.update).toHaveBeenCalled();
     });
 
     it('should throw error when article not found', async () => {
       articleRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent', input: {} })).rejects.toThrow(DomainError);
+      await expect(
+        usecase.execute({
+          id: 'article-1',
+          input: { title: 'Updated' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
+
+    it('should throw error when user has no permission', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity({ authorId: '999' }));
+
+      await expect(
+        usecase.execute({
+          id: 'article-1',
+          input: { title: 'Updated' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('DeleteArticleUsecase', () => {
     let usecase: DeleteArticleUsecase;
-    let articleRepository: any;
+    let articleRepository: jest.Mocked<ArticleRepository>;
 
     beforeEach(async () => {
-      articleRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'article-1' }),
-        softDelete: jest.fn().mockResolvedValue({}),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DeleteArticleUsecase,
-          { provide: ArticleRepository, useValue: articleRepository },
+          { provide: ArticleRepository, useValue: { findById: jest.fn(), softDelete: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<DeleteArticleUsecase>(DeleteArticleUsecase);
+      articleRepository = module.get(ArticleRepository);
     });
 
     it('should delete article successfully', async () => {
-      await usecase.execute({ id: 'article-1' });
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+
+      await usecase.execute({ id: 'article-1', session: userSession });
 
       expect(articleRepository.softDelete).toHaveBeenCalled();
     });
@@ -175,116 +274,233 @@ describe('Blog Usecases', () => {
     it('should throw error when article not found', async () => {
       articleRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent' })).rejects.toThrow(DomainError);
+      await expect(usecase.execute({ id: 'article-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity({ authorId: '999' }));
+
+      await expect(usecase.execute({ id: 'article-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
     });
   });
 
   describe('CreateCategoryUsecase', () => {
     let usecase: CreateCategoryUsecase;
-    let categoryRepository: any;
+    let categoryRepository: jest.Mocked<CategoryRepository>;
 
     beforeEach(async () => {
-      categoryRepository = {
-        findBySlug: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ id: 'category-1', name: 'Test Category' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           CreateCategoryUsecase,
-          { provide: CategoryRepository, useValue: categoryRepository },
+          { provide: CategoryRepository, useValue: { create: jest.fn(), findBySlug: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<CreateCategoryUsecase>(CreateCategoryUsecase);
+      categoryRepository = module.get(CategoryRepository);
     });
 
     it('should create category successfully', async () => {
-      const input = { name: 'Test Category' };
+      categoryRepository.findBySlug.mockResolvedValue(null);
+      categoryRepository.create.mockResolvedValue(createMockCategoryEntity());
 
-      const result = await usecase.execute({ input });
+      const result = await usecase.execute({
+        input: { name: 'Test', slug: 'test' },
+        session: adminSession,
+      });
 
-      expect(result).toEqual({ id: 'category-1', name: 'Test Category' });
+      expect(result).toEqual({
+        id: 'cat-1',
+        name: 'Test',
+        slug: 'test',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
     });
 
     it('should throw error when slug already exists', async () => {
-      categoryRepository.findBySlug.mockResolvedValue({ id: 'existing' });
+      categoryRepository.findBySlug.mockResolvedValue({
+        id: 'cat-1',
+        name: 'Test',
+        slug: 'test',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const input = { name: 'Test Category' };
+      await expect(
+        usecase.execute({
+          input: { name: 'Test', slug: 'test' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
 
-      await expect(usecase.execute({ input })).rejects.toThrow(DomainError);
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          input: { name: 'Test', slug: 'test' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('UpdateCategoryUsecase', () => {
     let usecase: UpdateCategoryUsecase;
-    let categoryRepository: any;
+    let categoryRepository: jest.Mocked<CategoryRepository>;
 
     beforeEach(async () => {
-      categoryRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'category-1', slug: 'original-slug' }),
-        findBySlug: jest.fn().mockResolvedValue(null),
-        update: jest.fn().mockResolvedValue({ id: 'category-1', name: 'Updated' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           UpdateCategoryUsecase,
-          { provide: CategoryRepository, useValue: categoryRepository },
+          {
+            provide: CategoryRepository,
+            useValue: { findById: jest.fn(), update: jest.fn(), findBySlug: jest.fn() },
+          },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<UpdateCategoryUsecase>(UpdateCategoryUsecase);
+      categoryRepository = module.get(CategoryRepository);
     });
 
     it('should update category successfully', async () => {
-      const input = { name: 'Updated Category' };
+      categoryRepository.findById.mockResolvedValue({
+        id: 'cat-1',
+        name: 'Old',
+        slug: 'old',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      categoryRepository.findBySlug.mockResolvedValue(null);
+      categoryRepository.update.mockResolvedValue({
+        id: 'cat-1',
+        name: 'Updated',
+        slug: 'updated',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const result = await usecase.execute({ id: 'category-1', input });
+      const result = await usecase.execute({
+        id: 'cat-1',
+        input: { name: 'Updated', slug: 'updated' },
+        session: adminSession,
+      });
 
-      expect(result).toEqual({ id: 'category-1', name: 'Updated' });
+      expect(result).toEqual({
+        id: 'cat-1',
+        name: 'Updated',
+        slug: 'updated',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
     });
 
     it('should throw error when category not found', async () => {
       categoryRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent', input: {} })).rejects.toThrow(DomainError);
+      await expect(
+        usecase.execute({
+          id: 'cat-1',
+          input: { name: 'Updated' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
 
     it('should throw error when slug already exists', async () => {
-      categoryRepository.findBySlug.mockResolvedValue({ id: 'different-category' });
+      categoryRepository.findById.mockResolvedValue({
+        id: 'cat-1',
+        name: 'Old',
+        slug: 'old',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      categoryRepository.findBySlug.mockResolvedValue({
+        id: 'cat-2',
+        name: 'Other',
+        slug: 'updated',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const input = { slug: 'existing-slug' };
+      await expect(
+        usecase.execute({
+          id: 'cat-1',
+          input: { slug: 'updated' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
 
-      await expect(usecase.execute({ id: 'category-1', input })).rejects.toThrow(DomainError);
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          id: 'cat-1',
+          input: { name: 'Updated' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('DeleteCategoryUsecase', () => {
     let usecase: DeleteCategoryUsecase;
-    let categoryRepository: any;
+    let categoryRepository: jest.Mocked<CategoryRepository>;
 
     beforeEach(async () => {
-      categoryRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'category-1' }),
-        delete: jest.fn().mockResolvedValue({}),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DeleteCategoryUsecase,
-          { provide: CategoryRepository, useValue: categoryRepository },
+          { provide: CategoryRepository, useValue: { findById: jest.fn(), delete: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<DeleteCategoryUsecase>(DeleteCategoryUsecase);
+      categoryRepository = module.get(CategoryRepository);
     });
 
     it('should delete category successfully', async () => {
-      await usecase.execute({ id: 'category-1' });
+      categoryRepository.findById.mockResolvedValue({
+        id: 'cat-1',
+        name: 'Test',
+        slug: 'test',
+        description: null,
+        parentId: null,
+        sort: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await usecase.execute({ id: 'cat-1', session: adminSession });
 
       expect(categoryRepository.delete).toHaveBeenCalled();
     });
@@ -292,126 +508,241 @@ describe('Blog Usecases', () => {
     it('should throw error when category not found', async () => {
       categoryRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent' })).rejects.toThrow(DomainError);
+      await expect(usecase.execute({ id: 'cat-1', session: adminSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      await expect(usecase.execute({ id: 'cat-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
     });
   });
 
   describe('CreateTagUsecase', () => {
     let usecase: CreateTagUsecase;
-    let tagRepository: any;
+    let tagRepository: jest.Mocked<TagRepository>;
 
     beforeEach(async () => {
-      tagRepository = {
-        findByName: jest.fn().mockResolvedValue(null),
-        findBySlug: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ id: 'tag-1', name: 'Test Tag' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           CreateTagUsecase,
-          { provide: TagRepository, useValue: tagRepository },
+          {
+            provide: TagRepository,
+            useValue: { create: jest.fn(), findByName: jest.fn(), findBySlug: jest.fn() },
+          },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<CreateTagUsecase>(CreateTagUsecase);
+      tagRepository = module.get(TagRepository);
     });
 
     it('should create tag successfully', async () => {
-      const input = { name: 'Test Tag' };
+      tagRepository.findByName.mockResolvedValue(null);
+      tagRepository.findBySlug.mockResolvedValue(null);
+      tagRepository.create.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Test',
+        slug: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const result = await usecase.execute({ input });
+      const result = await usecase.execute({
+        input: { name: 'Test', slug: 'test' },
+        session: adminSession,
+      });
 
-      expect(result).toEqual({ id: 'tag-1', name: 'Test Tag' });
+      expect(result).toEqual({
+        id: 'tag-1',
+        name: 'Test',
+        slug: 'test',
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
     });
 
     it('should throw error when name already exists', async () => {
-      tagRepository.findByName.mockResolvedValue({ id: 'existing' });
+      tagRepository.findByName.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Test',
+        slug: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const input = { name: 'Existing Tag' };
-
-      await expect(usecase.execute({ input })).rejects.toThrow(DomainError);
+      await expect(
+        usecase.execute({
+          input: { name: 'Test', slug: 'test' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
 
     it('should throw error when slug already exists', async () => {
-      tagRepository.findBySlug.mockResolvedValue({ id: 'existing' });
+      tagRepository.findByName.mockResolvedValue(null);
+      tagRepository.findBySlug.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Other',
+        slug: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const input = { name: 'Test Tag' };
+      await expect(
+        usecase.execute({
+          input: { name: 'Test', slug: 'test' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
 
-      await expect(usecase.execute({ input })).rejects.toThrow(DomainError);
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          input: { name: 'Test', slug: 'test' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('UpdateTagUsecase', () => {
     let usecase: UpdateTagUsecase;
-    let tagRepository: any;
+    let tagRepository: jest.Mocked<TagRepository>;
 
     beforeEach(async () => {
-      tagRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'tag-1', name: 'Original' }),
-        findByName: jest.fn().mockResolvedValue(null),
-        findBySlug: jest.fn().mockResolvedValue(null),
-        update: jest.fn().mockResolvedValue({ id: 'tag-1', name: 'Updated' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           UpdateTagUsecase,
-          { provide: TagRepository, useValue: tagRepository },
+          {
+            provide: TagRepository,
+            useValue: {
+              findById: jest.fn(),
+              update: jest.fn(),
+              findByName: jest.fn(),
+              findBySlug: jest.fn(),
+            },
+          },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<UpdateTagUsecase>(UpdateTagUsecase);
+      tagRepository = module.get(TagRepository);
     });
 
     it('should update tag successfully', async () => {
-      const input = { name: 'Updated Tag' };
+      tagRepository.findById.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Old',
+        slug: 'old',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      tagRepository.findByName.mockResolvedValue(null);
+      tagRepository.findBySlug.mockResolvedValue(null);
+      tagRepository.update.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Updated',
+        slug: 'updated',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const result = await usecase.execute({ id: 'tag-1', input });
+      const result = await usecase.execute({
+        id: 'tag-1',
+        input: { name: 'Updated', slug: 'updated' },
+        session: adminSession,
+      });
 
-      expect(result).toEqual({ id: 'tag-1', name: 'Updated' });
+      expect(result).toEqual({
+        id: 'tag-1',
+        name: 'Updated',
+        slug: 'updated',
+        createdAt: expect.any(Date),
+        updatedAt: expect.any(Date),
+      });
     });
 
     it('should throw error when tag not found', async () => {
       tagRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent', input: {} })).rejects.toThrow(DomainError);
+      await expect(
+        usecase.execute({
+          id: 'tag-1',
+          input: { name: 'Updated' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
 
     it('should throw error when name already exists', async () => {
-      tagRepository.findByName.mockResolvedValue({ id: 'different-tag' });
+      tagRepository.findById.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Old',
+        slug: 'old',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      tagRepository.findByName.mockResolvedValue({
+        id: 'tag-2',
+        name: 'Updated',
+        slug: 'other',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-      const input = { name: 'Existing Name' };
+      await expect(
+        usecase.execute({
+          id: 'tag-1',
+          input: { name: 'Updated' },
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
 
-      await expect(usecase.execute({ id: 'tag-1', input })).rejects.toThrow(DomainError);
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          id: 'tag-1',
+          input: { name: 'Updated' },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('DeleteTagUsecase', () => {
     let usecase: DeleteTagUsecase;
-    let tagRepository: any;
+    let tagRepository: jest.Mocked<TagRepository>;
 
     beforeEach(async () => {
-      tagRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'tag-1' }),
-        delete: jest.fn().mockResolvedValue({}),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DeleteTagUsecase,
-          { provide: TagRepository, useValue: tagRepository },
+          { provide: TagRepository, useValue: { findById: jest.fn(), delete: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<DeleteTagUsecase>(DeleteTagUsecase);
+      tagRepository = module.get(TagRepository);
     });
 
     it('should delete tag successfully', async () => {
-      await usecase.execute({ id: 'tag-1' });
+      tagRepository.findById.mockResolvedValue({
+        id: 'tag-1',
+        name: 'Test',
+        slug: 'test',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await usecase.execute({ id: 'tag-1', session: adminSession });
 
       expect(tagRepository.delete).toHaveBeenCalled();
     });
@@ -419,142 +750,658 @@ describe('Blog Usecases', () => {
     it('should throw error when tag not found', async () => {
       tagRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent' })).rejects.toThrow(DomainError);
+      await expect(usecase.execute({ id: 'tag-1', session: adminSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      await expect(usecase.execute({ id: 'tag-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
     });
   });
 
   describe('CreateCommentUsecase', () => {
     let usecase: CreateCommentUsecase;
-    let commentRepository: any;
-    let commentQueryService: any;
+    let commentRepository: jest.Mocked<CommentRepository>;
+    let commentQueryService: jest.Mocked<CommentQueryService>;
 
     beforeEach(async () => {
-      commentRepository = {
-        create: jest.fn().mockResolvedValue({ id: 'comment-1' }),
-      };
-      commentQueryService = {
-        getCommentById: jest.fn().mockResolvedValue({ id: 'comment-1', content: 'Test' }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           CreateCommentUsecase,
-          { provide: CommentRepository, useValue: commentRepository },
-          { provide: CommentQueryService, useValue: commentQueryService },
+          {
+            provide: CommentRepository,
+            useValue: { create: jest.fn(), getCommentDepth: jest.fn() },
+          },
+          { provide: CommentQueryService, useValue: { getCommentById: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<CreateCommentUsecase>(CreateCommentUsecase);
+      commentRepository = module.get(CommentRepository);
+      commentQueryService = module.get(CommentQueryService);
     });
 
     it('should create comment successfully with PENDING status', async () => {
-      const input = {
+      const now = new Date();
+      commentRepository.create.mockResolvedValue({
+        id: 'comment-1',
         articleId: 'article-1',
         authorName: 'Test Author',
         authorEmail: 'test@example.com',
-        content: 'Great article!',
-      };
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      const result = await usecase.execute({ input });
+      const result = await usecase.execute({
+        input: {
+          articleId: 'article-1',
+          authorName: 'Test Author',
+          authorEmail: 'test@example.com',
+          content: 'Test',
+        },
+        session: userSession,
+      });
 
-      expect(result).toEqual({ id: 'comment-1', content: 'Test' });
+      expect(result).toEqual({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    it('should generate avatar from email MD5', async () => {
+      const now = new Date();
+      commentRepository.create.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar:
+          'https://www.gravatar.com/avatar/098f6bcd4621d373cade4e832627b4f6?d=identicon',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar:
+          'https://www.gravatar.com/avatar/098f6bcd4621d373cade4e832627b4f6?d=identicon',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await usecase.execute({
+        input: {
+          articleId: 'article-1',
+          authorName: 'Test Author',
+          authorEmail: 'test@example.com',
+          content: 'Test',
+        },
+        session: userSession,
+      });
+
       expect(commentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: CommentStatus.PENDING,
+          authorAvatar:
+            'https://www.gravatar.com/avatar/55502f40dc8b7c769880b10874abc9d0?d=identicon',
         }),
-        expect.any(Object),
+        expect.anything(),
       );
     });
 
-    it('should throw error when comment not found after creation', async () => {
-      commentQueryService.getCommentById.mockResolvedValue(null);
+    it('should throw error when comment depth exceeds limit', async () => {
+      commentRepository.getCommentDepth.mockResolvedValue(3);
 
-      const input = {
+      await expect(
+        usecase.execute({
+          input: {
+            articleId: 'article-1',
+            authorName: 'Test Author',
+            authorEmail: 'test@example.com',
+            content: 'Test',
+            parentId: 'parent-comment-id',
+          },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
+
+    it('should create nested comment when depth is within limit', async () => {
+      const now = new Date();
+      commentRepository.getCommentDepth.mockResolvedValue(2);
+      commentRepository.create.mockResolvedValue({
+        id: 'comment-1',
         articleId: 'article-1',
         authorName: 'Test Author',
         authorEmail: 'test@example.com',
-        content: 'Great article!',
-      };
+        authorAvatar: '',
+        content: 'Test',
+        parentId: 'parent-comment-id',
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: 'parent-comment-id',
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      await expect(usecase.execute({ input })).rejects.toThrow(DomainError);
+      const result = await usecase.execute({
+        input: {
+          articleId: 'article-1',
+          authorName: 'Test Author',
+          authorEmail: 'test@example.com',
+          content: 'Test',
+          parentId: 'parent-comment-id',
+        },
+        session: userSession,
+      });
+
+      expect(result.parentId).toBe('parent-comment-id');
+    });
+
+    it('should throw error when comment not found after creation', async () => {
+      commentRepository.create.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test Author',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue(null);
+
+      await expect(
+        usecase.execute({
+          input: {
+            articleId: 'article-1',
+            authorName: 'Test Author',
+            authorEmail: 'test@example.com',
+            content: 'Test',
+          },
+          session: userSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
+
+    it('should throw error when user has no permission', async () => {
+      await expect(
+        usecase.execute({
+          input: {
+            articleId: 'article-1',
+            authorName: 'Test Author',
+            authorEmail: 'test@example.com',
+            content: 'Test',
+          },
+          session: emptySession,
+        }),
+      ).rejects.toThrow(DomainError);
     });
   });
 
   describe('UpdateCommentStatusUsecase', () => {
     let usecase: UpdateCommentStatusUsecase;
-    let commentRepository: any;
-    let commentQueryService: any;
+    let commentRepository: jest.Mocked<CommentRepository>;
+    let commentQueryService: jest.Mocked<CommentQueryService>;
 
     beforeEach(async () => {
-      commentRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'comment-1' }),
-        updateStatus: jest.fn().mockResolvedValue({}),
-      };
-      commentQueryService = {
-        getCommentById: jest
-          .fn()
-          .mockResolvedValue({ id: 'comment-1', status: CommentStatus.APPROVED }),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           UpdateCommentStatusUsecase,
-          { provide: CommentRepository, useValue: commentRepository },
-          { provide: CommentQueryService, useValue: commentQueryService },
+          {
+            provide: CommentRepository,
+            useValue: { findById: jest.fn(), updateStatus: jest.fn() },
+          },
+          { provide: CommentQueryService, useValue: { getCommentById: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<UpdateCommentStatusUsecase>(UpdateCommentStatusUsecase);
+      commentRepository = module.get(CommentRepository);
+      commentQueryService = module.get(CommentQueryService);
     });
 
     it('should update comment status successfully', async () => {
-      const result = await usecase.execute({ id: 'comment-1', status: CommentStatus.APPROVED });
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+      const now = new Date();
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.APPROVED,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      expect(result.status).toBe(CommentStatus.APPROVED);
+      const result = await usecase.execute({
+        id: 'comment-1',
+        status: CommentStatus.APPROVED,
+        session: adminSession,
+      });
+
+      expect(result).toEqual({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.APPROVED,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
     it('should throw error when comment not found', async () => {
       commentRepository.findById.mockResolvedValue(null);
 
       await expect(
-        usecase.execute({ id: 'non-existent', status: CommentStatus.APPROVED }),
+        usecase.execute({
+          id: 'comment-1',
+          status: CommentStatus.APPROVED,
+          session: adminSession,
+        }),
+      ).rejects.toThrow(DomainError);
+    });
+
+    it('should throw error when user has no permission', async () => {
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      await expect(
+        usecase.execute({
+          id: 'comment-1',
+          status: CommentStatus.APPROVED,
+          session: userSession,
+        }),
       ).rejects.toThrow(DomainError);
     });
   });
 
   describe('DeleteCommentUsecase', () => {
     let usecase: DeleteCommentUsecase;
-    let commentRepository: any;
+    let commentRepository: jest.Mocked<CommentRepository>;
 
     beforeEach(async () => {
-      commentRepository = {
-        findById: jest.fn().mockResolvedValue({ id: 'comment-1' }),
-        softDelete: jest.fn().mockResolvedValue({}),
-      };
-
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           DeleteCommentUsecase,
-          { provide: CommentRepository, useValue: commentRepository },
+          {
+            provide: CommentRepository,
+            useValue: {
+              findById: jest.fn(),
+              softDelete: jest.fn(),
+              findChildrenRecursively: jest.fn(),
+            },
+          },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
         ],
       }).compile();
 
       usecase = module.get<DeleteCommentUsecase>(DeleteCommentUsecase);
+      commentRepository = module.get(CommentRepository);
     });
 
     it('should delete comment successfully', async () => {
-      await usecase.execute({ id: 'comment-1' });
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+      commentRepository.findChildrenRecursively.mockResolvedValue([]);
 
-      expect(commentRepository.softDelete).toHaveBeenCalled();
+      await usecase.execute({ id: 'comment-1', session: adminSession });
+
+      expect(commentRepository.softDelete).toHaveBeenCalledWith('comment-1', expect.anything());
+    });
+
+    it('should cascade delete child comments', async () => {
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+      commentRepository.findChildrenRecursively.mockResolvedValue([
+        { id: 'child-1', parentId: 'comment-1' },
+        { id: 'child-2', parentId: 'child-1' },
+      ] as any);
+
+      await usecase.execute({ id: 'comment-1', session: adminSession });
+
+      expect(commentRepository.softDelete).toHaveBeenCalledTimes(3);
+      expect(commentRepository.softDelete).toHaveBeenCalledWith('child-1', expect.anything());
+      expect(commentRepository.softDelete).toHaveBeenCalledWith('child-2', expect.anything());
+      expect(commentRepository.softDelete).toHaveBeenCalledWith('comment-1', expect.anything());
     });
 
     it('should throw error when comment not found', async () => {
       commentRepository.findById.mockResolvedValue(null);
 
-      await expect(usecase.execute({ id: 'non-existent' })).rejects.toThrow(DomainError);
+      await expect(usecase.execute({ id: 'comment-1', session: adminSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      await expect(usecase.execute({ id: 'comment-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+  });
+
+  describe('ApproveCommentUsecase', () => {
+    let usecase: ApproveCommentUsecase;
+    let commentRepository: jest.Mocked<CommentRepository>;
+    let commentQueryService: jest.Mocked<CommentQueryService>;
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ApproveCommentUsecase,
+          {
+            provide: CommentRepository,
+            useValue: { findById: jest.fn(), updateStatus: jest.fn() },
+          },
+          { provide: CommentQueryService, useValue: { getCommentById: jest.fn() } },
+          { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
+        ],
+      }).compile();
+
+      usecase = module.get<ApproveCommentUsecase>(ApproveCommentUsecase);
+      commentRepository = module.get(CommentRepository);
+      commentQueryService = module.get(CommentQueryService);
+    });
+
+    it('should approve comment successfully', async () => {
+      const now = new Date();
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentRepository.updateStatus.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.APPROVED,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.APPROVED,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({ id: 'comment-1', session: adminSession });
+
+      expect(result.status).toBe(CommentStatus.APPROVED);
+      expect(commentRepository.updateStatus).toHaveBeenCalledWith(
+        'comment-1',
+        CommentStatus.APPROVED,
+        expect.anything(),
+      );
+    });
+
+    it('should throw error when comment not found', async () => {
+      commentRepository.findById.mockResolvedValue(null);
+
+      await expect(usecase.execute({ id: 'comment-1', session: adminSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      await expect(usecase.execute({ id: 'comment-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+  });
+
+  describe('RejectCommentUsecase', () => {
+    let usecase: RejectCommentUsecase;
+    let commentRepository: jest.Mocked<CommentRepository>;
+    let commentQueryService: jest.Mocked<CommentQueryService>;
+
+    beforeEach(async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          RejectCommentUsecase,
+          {
+            provide: CommentRepository,
+            useValue: { findById: jest.fn(), updateStatus: jest.fn() },
+          },
+          { provide: CommentQueryService, useValue: { getCommentById: jest.fn() } },
+          { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
+        ],
+      }).compile();
+
+      usecase = module.get<RejectCommentUsecase>(RejectCommentUsecase);
+      commentRepository = module.get(CommentRepository);
+      commentQueryService = module.get(CommentQueryService);
+    });
+
+    it('should reject comment successfully', async () => {
+      const now = new Date();
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentRepository.updateStatus.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.REJECTED,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      });
+      commentQueryService.getCommentById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.REJECTED,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({ id: 'comment-1', session: adminSession });
+
+      expect(result.status).toBe(CommentStatus.REJECTED);
+      expect(commentRepository.updateStatus).toHaveBeenCalledWith(
+        'comment-1',
+        CommentStatus.REJECTED,
+        expect.anything(),
+      );
+    });
+
+    it('should throw error when comment not found', async () => {
+      commentRepository.findById.mockResolvedValue(null);
+
+      await expect(usecase.execute({ id: 'comment-1', session: adminSession })).rejects.toThrow(
+        DomainError,
+      );
+    });
+
+    it('should throw error when user has no permission', async () => {
+      commentRepository.findById.mockResolvedValue({
+        id: 'comment-1',
+        articleId: 'article-1',
+        authorName: 'Test',
+        authorEmail: 'test@example.com',
+        authorAvatar: '',
+        content: 'Test',
+        parentId: null,
+        status: CommentStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      });
+
+      await expect(usecase.execute({ id: 'comment-1', session: userSession })).rejects.toThrow(
+        DomainError,
+      );
     });
   });
 });

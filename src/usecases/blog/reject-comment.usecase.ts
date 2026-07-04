@@ -2,18 +2,21 @@ import type { PersistenceTransactionContext } from '@app-types/common/transactio
 import type { UsecaseSession } from '@app-types/auth/session.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
+import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
 import {
   TRANSACTION_RUNNER,
   type TransactionRunner,
 } from '@src/usecases/common/ports/transaction-runner.contract';
 import { BLOG_ERROR, DomainError, PERMISSION_ERROR } from '@core/common/errors/domain-error';
 import { canManageComment } from '@core/blog/policy/blog-authorization.policy';
+import { CommentStatus, CommentView } from '@src/modules/blog/blog.types';
 import { normalizeCommentId } from './blog.input.normalize';
 
 @Injectable()
-export class DeleteCommentUsecase {
+export class RejectCommentUsecase {
   constructor(
     private readonly commentRepository: CommentRepository,
+    private readonly commentQueryService: CommentQueryService,
     @Inject(TRANSACTION_RUNNER)
     private readonly transactionRunner: TransactionRunner,
   ) {}
@@ -26,7 +29,7 @@ export class DeleteCommentUsecase {
     id: string;
     session: UsecaseSession;
     transactionContext?: PersistenceTransactionContext;
-  }): Promise<void> {
+  }): Promise<CommentView> {
     const normalizedId = normalizeCommentId(id);
 
     const run = async (activeTransactionContext: PersistenceTransactionContext) => {
@@ -38,19 +41,23 @@ export class DeleteCommentUsecase {
       }
 
       if (!canManageComment(session)) {
-        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限删除评论');
+        throw new DomainError(PERMISSION_ERROR.ACCESS_DENIED, '无权限审核评论');
       }
 
-      const children = await this.commentRepository.findChildrenRecursively(
+      const updated = await this.commentRepository.updateStatus(
         normalizedId,
+        CommentStatus.REJECTED,
         activeTransactionContext,
       );
 
-      for (const child of children) {
-        await this.commentRepository.softDelete(child.id, activeTransactionContext);
+      const result = await this.commentQueryService.getCommentById(
+        updated.id,
+        activeTransactionContext,
+      );
+      if (!result) {
+        throw new DomainError(BLOG_ERROR.UPDATE_FAILED, '拒绝评论失败');
       }
-
-      await this.commentRepository.softDelete(normalizedId, activeTransactionContext);
+      return result;
     };
 
     return transactionContext

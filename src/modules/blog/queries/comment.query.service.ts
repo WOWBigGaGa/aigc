@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { CommentRepository } from '../repositories/comment.repository';
 import { CommentEntity } from '../entities/comment.entity';
 import { CommentView, CommentTreeNode, PaginationInput, PaginatedResult } from '../blog.types';
+import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 
 /**
  * 评论查询服务
@@ -95,9 +96,12 @@ export class CommentQueryService {
   /**
    * 根据 ID 获取评论
    */
-  async getCommentById(id: string): Promise<CommentView | null> {
+  async getCommentById(
+    id: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<CommentView | null> {
     try {
-      const comment = await this.commentRepository.findById(id);
+      const comment = await this.commentRepository.findById(id, transactionContext);
       return comment ? this.mapToView(comment) : null;
     } catch (error) {
       if (error instanceof DomainError) {

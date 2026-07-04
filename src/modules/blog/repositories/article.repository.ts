@@ -346,7 +346,8 @@ export class ArticleRepository {
         .andWhere('article.published_at IS NOT NULL')
         .andWhere('article.deleted_at IS NULL')
         .groupBy('year, month')
-        .orderBy('year DESC, month DESC')
+        .orderBy('year', 'DESC')
+        .addOrderBy('month', 'DESC')
         .getRawMany<{ year: number; month: number; count: number }>();
 
       return result.map((row) => ({
@@ -386,13 +387,13 @@ export class ArticleRepository {
         .andWhere('article.deleted_at IS NULL')
         .andWhere('article.category_id IS NOT NULL')
         .groupBy('article.category_id, category.name')
-        .orderBy('articleCount DESC')
-        .getRawMany<{ categoryId: string; categoryName: string; articleCount: number }>();
+        .orderBy('articleCount', 'DESC')
+        .getRawMany<{ categoryId: string; categoryName: string; articleCount: string }>();
 
       return result.map((row) => ({
         categoryId: row.categoryId,
         categoryName: row.categoryName || '未分类',
-        articleCount: row.articleCount,
+        articleCount: parseInt(row.articleCount, 10) || 0,
       }));
     } catch (error) {
       throw new DomainError(

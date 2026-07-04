@@ -12,6 +12,8 @@ import { DeleteTagUsecase } from './delete-tag.usecase';
 import { CreateCommentUsecase } from './create-comment.usecase';
 import { UpdateCommentStatusUsecase } from './update-comment-status.usecase';
 import { DeleteCommentUsecase } from './delete-comment.usecase';
+import { ApproveCommentUsecase } from './approve-comment.usecase';
+import { RejectCommentUsecase } from './reject-comment.usecase';
 
 @Module({
   imports: [BlogInstallerModule],
@@ -28,6 +30,8 @@ import { DeleteCommentUsecase } from './delete-comment.usecase';
     CreateCommentUsecase,
     UpdateCommentStatusUsecase,
     DeleteCommentUsecase,
+    ApproveCommentUsecase,
+    RejectCommentUsecase,
   ],
   exports: [
     CreateArticleUsecase,
@@ -42,6 +46,8 @@ import { DeleteCommentUsecase } from './delete-comment.usecase';
     CreateCommentUsecase,
     UpdateCommentStatusUsecase,
     DeleteCommentUsecase,
+    ApproveCommentUsecase,
+    RejectCommentUsecase,
   ],
 })
 export class BlogUsecasesModule {}
