@@ -5,6 +5,7 @@ import { AppConfigModule } from '@src/infrastructure/config/config.module';
 import { DatabaseModule } from '@src/infrastructure/database/database.module';
 import { TypeOrmTransactionModule } from '@src/infrastructure/database/transaction/typeorm-transaction.module';
 import { BlogModule } from '@src/modules/blog/blog.module';
+import { BlogGraphQLModule } from '@src/adapters/api/graphql/blog/blog.graphql.module';
 import { ArticleEntity } from '@src/modules/blog/entities/article.entity';
 import { CategoryEntity } from '@src/modules/blog/entities/category.entity';
 import { CommentEntity } from '@src/modules/blog/entities/comment.entity';
@@ -35,6 +36,7 @@ import { ArticleStatus, CommentStatus } from '@src/modules/blog/blog.types';
 import { DataSource, In, Like } from 'typeorm';
 import type { UsecaseSession } from '@app-types/auth/session.types';
 import { IdentityTypeEnum } from '@app-types/models/account.types';
+import * as request from 'supertest';
 
 describe('Blog Module (e2e)', () => {
   let app: INestApplication;
@@ -96,6 +98,7 @@ describe('Blog Module (e2e)', () => {
         TypeOrmTransactionModule,
         BlogModule,
         BlogUsecasesModule,
+        BlogGraphQLModule,
       ],
     }).compile();
 
@@ -1045,6 +1048,224 @@ describe('Blog Module (e2e)', () => {
         const found = await commentRepository.findById(comment.id);
         expect(found?.status).toBe(CommentStatus.REJECTED);
       });
+    });
+  });
+
+  describe('Blog GraphQL Resolvers', () => {
+    it('should query articles via GraphQL', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}GraphQL Query Article`,
+        content: '# GraphQL Query Test',
+        summary: 'GraphQL query test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              articles(pagination: {page: 1, limit: 10}) {
+                items { id title status }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.articles.total).toBeGreaterThanOrEqual(1);
+      expect(response.body.data.articles.items).toBeDefined();
+    });
+
+    it('should query single article via GraphQL', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}GraphQL Single Article`,
+        content: '# GraphQL Single Test',
+        summary: 'GraphQL single test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              article(id: "${article.id}") {
+                id
+                title
+                summary
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.article.id).toBe(article.id);
+      expect(response.body.data.article.title).toBe(`${testPrefix}GraphQL Single Article`);
+    });
+
+    it('should query categories via GraphQL', async () => {
+      const category = await categoryRepository.create({
+        name: `${testPrefix}GraphQL Category`,
+        slug: `${testPrefix}graphql-category`,
+        sort: 0,
+        parentId: null,
+      });
+      seededCategoryIds.push(category.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              categories {
+                id
+                name
+                slug
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.categories)).toBe(true);
+      expect(response.body.data.categories.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should query tags via GraphQL', async () => {
+      const tag = await tagRepository.create({
+        name: `${testPrefix}GraphQL Tag`,
+        slug: `${testPrefix}graphql-tag`,
+      });
+      seededTagIds.push(tag.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              tags {
+                id
+                name
+                slug
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.tags)).toBe(true);
+      expect(response.body.data.tags.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should query archives via GraphQL', async () => {
+      await Promise.all(
+        Array.from({ length: 2 }).map((_, i) =>
+          articleRepository.create({
+            title: `${testPrefix}GraphQL Archive ${i}`,
+            content: 'Content',
+            summary: `Archive ${i}`,
+            authorId: 'test-author-id',
+            status: ArticleStatus.PUBLISHED,
+            viewCount: 0,
+            likeCount: 0,
+            isPinned: false,
+            publishedAt: new Date(),
+          }),
+        ),
+      ).then((articles) => seededArticleIds.push(...articles.map((a) => a.id)));
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              archives {
+                year
+                month
+                count
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.archives)).toBe(true);
+      expect(response.body.data.archives.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should create article via GraphQL mutation', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createArticle(input: {
+                title: "${testPrefix}GraphQL Mutation Article"
+                content: "# GraphQL Mutation Test"
+                summary: "GraphQL mutation test"
+              }) {
+                id
+                title
+                status
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.createArticle.id).toBeDefined();
+      expect(response.body.data.createArticle.title).toBe(`${testPrefix}GraphQL Mutation Article`);
+      expect(response.body.data.createArticle.status).toBe('DRAFT');
+
+      seededArticleIds.push(response.body.data.createArticle.id);
+    });
+
+    it('should increment view count via GraphQL mutation', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}GraphQL View Count`,
+        content: '# View Count Test',
+        summary: 'View count test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              incrementViewCount(id: "${article.id}") {
+                id
+                viewCount
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.incrementViewCount.viewCount).toBe(1);
+
+      const found = await articleRepository.findById(article.id);
+      expect(found?.viewCount).toBe(1);
     });
   });
 
