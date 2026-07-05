@@ -6,7 +6,8 @@ import { TagResolver } from './tag.resolver';
 import { DashboardResolver } from './dashboard.resolver';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
-import { ArticleRepository } from '@src/modules/blog/repositories/article.repository';
+import { CategoryQueryService } from '@src/modules/blog/queries/category.query.service';
+import { TagQueryService } from '@src/modules/blog/queries/tag.query.service';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
 import { CategoryRepository } from '@src/modules/blog/repositories/category.repository';
 import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
@@ -34,7 +35,8 @@ describe('Blog Resolvers', () => {
 
   let articleQueryService: jest.Mocked<ArticleQueryService>;
   let commentQueryService: jest.Mocked<CommentQueryService>;
-  let articleRepository: jest.Mocked<ArticleRepository>;
+  let categoryQueryService: jest.Mocked<CategoryQueryService>;
+  let tagQueryService: jest.Mocked<TagQueryService>;
   let categoryRepository: jest.Mocked<CategoryRepository>;
   let tagRepository: jest.Mocked<TagRepository>;
 
@@ -43,17 +45,25 @@ describe('Blog Resolvers', () => {
       getArticles: jest.fn(),
       getArticleById: jest.fn(),
       getArchives: jest.fn(),
+      getArticleStats: jest.fn(),
+      incrementViewCount: jest.fn(),
+      incrementLikeCount: jest.fn(),
     } as any;
 
     commentQueryService = {
       getCommentsByArticle: jest.fn(),
       getPendingComments: jest.fn(),
+      getTotalCommentCount: jest.fn(),
     } as any;
 
-    articleRepository = {
-      findById: jest.fn(),
-      incrementViewCount: jest.fn(),
-      incrementLikeCount: jest.fn(),
+    categoryQueryService = {
+      getAllCategories: jest.fn(),
+      getCategoryCount: jest.fn(),
+    } as any;
+
+    tagQueryService = {
+      getAllTags: jest.fn(),
+      getTagCount: jest.fn(),
     } as any;
 
     categoryRepository = {
@@ -73,10 +83,11 @@ describe('Blog Resolvers', () => {
         DashboardResolver,
         { provide: ArticleQueryService, useValue: articleQueryService },
         { provide: CommentQueryService, useValue: commentQueryService },
-        { provide: ArticleRepository, useValue: articleRepository },
-        { provide: CommentRepository, useValue: {} },
+        { provide: CategoryQueryService, useValue: categoryQueryService },
+        { provide: TagQueryService, useValue: tagQueryService },
         { provide: CategoryRepository, useValue: categoryRepository },
         { provide: TagRepository, useValue: tagRepository },
+        { provide: CommentRepository, useValue: {} },
         { provide: CreateArticleUsecase, useValue: { execute: jest.fn() } },
         { provide: UpdateArticleUsecase, useValue: { execute: jest.fn() } },
         { provide: DeleteArticleUsecase, useValue: { execute: jest.fn() } },
@@ -184,12 +195,12 @@ describe('Blog Resolvers', () => {
         updatedAt: new Date(),
         publishedAt: new Date(),
       };
-      articleRepository.incrementViewCount.mockResolvedValue();
+      articleQueryService.incrementViewCount.mockResolvedValue();
       articleQueryService.getArticleById.mockResolvedValue({ ...mockArticle, viewCount: 1 });
 
       const result = await articleResolver.incrementViewCount('1');
 
-      expect(articleRepository.incrementViewCount).toHaveBeenCalledWith('1');
+      expect(articleQueryService.incrementViewCount).toHaveBeenCalledWith('1');
       expect(result?.viewCount).toBe(1);
     });
 
@@ -210,12 +221,12 @@ describe('Blog Resolvers', () => {
         updatedAt: new Date(),
         publishedAt: new Date(),
       };
-      articleRepository.incrementLikeCount.mockResolvedValue();
+      articleQueryService.incrementLikeCount.mockResolvedValue();
       articleQueryService.getArticleById.mockResolvedValue({ ...mockArticle, likeCount: 1 });
 
       const result = await articleResolver.incrementLikeCount('1');
 
-      expect(articleRepository.incrementLikeCount).toHaveBeenCalledWith('1');
+      expect(articleQueryService.incrementLikeCount).toHaveBeenCalledWith('1');
       expect(result?.likeCount).toBe(1);
     });
   });
@@ -263,7 +274,6 @@ describe('Blog Resolvers', () => {
             authorAvatar: '',
             status: CommentStatus.PENDING,
             parentId: null,
-            children: [],
             createdAt: new Date(),
             updatedAt: new Date(),
           },
@@ -343,50 +353,12 @@ describe('Blog Resolvers', () => {
 
   describe('DashboardResolver', () => {
     it('should return dashboard stats', async () => {
-      categoryRepository.findAll.mockResolvedValue([
-        {
-          id: '1',
-          name: 'Test',
-          slug: 'test',
-          description: '',
-          parentId: null,
-          sort: 0,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ]);
-      tagRepository.findAll.mockResolvedValue([
-        {
-          id: '1',
-          name: 'Test',
-          slug: 'test',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ]);
-      articleQueryService.getArticles.mockResolvedValue({
-        items: [
-          {
-            id: '1',
-            title: 'Test',
-            content: '',
-            coverImage: null,
-            summary: '',
-            status: ArticleStatus.PUBLISHED,
-            viewCount: 100,
-            likeCount: 10,
-            isPinned: false,
-            authorId: '1',
-            categoryId: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            publishedAt: new Date(),
-          },
-        ],
-        total: 1,
-        page: 1,
-        pageSize: 1000,
-        pageInfo: { hasNext: false },
+      categoryQueryService.getCategoryCount.mockResolvedValue(1);
+      tagQueryService.getTagCount.mockResolvedValue(1);
+      articleQueryService.getArticleStats.mockResolvedValue({
+        totalViewCount: 100,
+        totalLikeCount: 10,
+        totalPublishedCount: 1,
       });
       commentQueryService.getPendingComments.mockResolvedValue({
         items: [],
@@ -395,13 +367,7 @@ describe('Blog Resolvers', () => {
         pageSize: 1,
         pageInfo: { hasNext: false },
       });
-      commentQueryService.getCommentsByArticle.mockResolvedValue({
-        items: [],
-        total: 20,
-        page: 1,
-        pageSize: 1,
-        pageInfo: { hasNext: false },
-      });
+      commentQueryService.getTotalCommentCount.mockResolvedValue(20);
 
       const result = await dashboardResolver.dashboardStats();
 
@@ -426,14 +392,12 @@ describe('Blog Resolvers', () => {
     });
 
     it('should return zero stats when no data', async () => {
-      categoryRepository.findAll.mockResolvedValue([]);
-      tagRepository.findAll.mockResolvedValue([]);
-      articleQueryService.getArticles.mockResolvedValue({
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 1000,
-        pageInfo: { hasNext: false },
+      categoryQueryService.getCategoryCount.mockResolvedValue(0);
+      tagQueryService.getTagCount.mockResolvedValue(0);
+      articleQueryService.getArticleStats.mockResolvedValue({
+        totalViewCount: 0,
+        totalLikeCount: 0,
+        totalPublishedCount: 0,
       });
       commentQueryService.getPendingComments.mockResolvedValue({
         items: [],
@@ -442,13 +406,7 @@ describe('Blog Resolvers', () => {
         pageSize: 1,
         pageInfo: { hasNext: false },
       });
-      commentQueryService.getCommentsByArticle.mockResolvedValue({
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 1,
-        pageInfo: { hasNext: false },
-      });
+      commentQueryService.getTotalCommentCount.mockResolvedValue(0);
 
       const result = await dashboardResolver.dashboardStats();
 

@@ -5,55 +5,38 @@ import { DashboardStatsDTO } from '../types/dashboard-stats.dto';
 import { ArchiveDTO } from '../types/archive.dto';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
-import { CategoryRepository } from '@src/modules/blog/repositories/category.repository';
-import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
+import { CategoryQueryService } from '@src/modules/blog/queries/category.query.service';
+import { TagQueryService } from '@src/modules/blog/queries/tag.query.service';
 
 @Resolver()
 export class DashboardResolver {
   constructor(
     private readonly articleQueryService: ArticleQueryService,
     private readonly commentQueryService: CommentQueryService,
-    private readonly categoryRepository: CategoryRepository,
-    private readonly tagRepository: TagRepository,
+    private readonly categoryQueryService: CategoryQueryService,
+    private readonly tagQueryService: TagQueryService,
   ) {}
 
   @Query(() => DashboardStatsDTO)
   @UseGuards(JwtAuthGuard)
   async dashboardStats(): Promise<DashboardStatsDTO> {
-    const [categories, tags, articlesResult, pendingComments] = await Promise.all([
-      this.categoryRepository.findAll(),
-      this.tagRepository.findAll(),
-      this.articleQueryService.getArticles({}, { page: 1, limit: 1000 }),
-      this.commentQueryService.getPendingComments({ page: 1, limit: 1 }),
-    ]);
-
-    const categoryCount = categories.length;
-    const tagCount = tags.length;
-    const articleCount = articlesResult.total;
-    const totalViewCount = articlesResult.items.reduce(
-      (sum, article) => sum + (article.viewCount || 0),
-      0,
-    );
-    const totalLikeCount = articlesResult.items.reduce(
-      (sum, article) => sum + (article.likeCount || 0),
-      0,
-    );
-    const pendingCommentCount = pendingComments.total;
-
-    const commentsResult = await this.commentQueryService.getCommentsByArticle('0', {
-      page: 1,
-      limit: 1,
-    });
-    const commentCount = commentsResult.total;
+    const [categoryCount, tagCount, articleStats, pendingComments, commentCount] =
+      await Promise.all([
+        this.categoryQueryService.getCategoryCount(),
+        this.tagQueryService.getTagCount(),
+        this.articleQueryService.getArticleStats(),
+        this.commentQueryService.getPendingComments({ page: 1, limit: 1 }),
+        this.commentQueryService.getTotalCommentCount(),
+      ]);
 
     return {
-      articleCount,
+      articleCount: articleStats.totalPublishedCount,
       commentCount,
       categoryCount,
       tagCount,
-      totalViewCount,
-      totalLikeCount,
-      pendingCommentCount,
+      totalViewCount: articleStats.totalViewCount,
+      totalLikeCount: articleStats.totalLikeCount,
+      pendingCommentCount: pendingComments.total,
     };
   }
 

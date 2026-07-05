@@ -368,6 +368,46 @@ export class ArticleRepository {
   }
 
   /**
+   * 获取文章聚合统计（总浏览量、总点赞数）
+   */
+  async getArticleStats(
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<{ totalViewCount: number; totalLikeCount: number; totalPublishedCount: number }> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      const result = await repository
+        .createQueryBuilder('article')
+        .select([
+          'COALESCE(SUM(article.view_count), 0) as totalViewCount',
+          'COALESCE(SUM(article.like_count), 0) as totalLikeCount',
+          'COUNT(article.id) as totalPublishedCount',
+        ])
+        .where('article.status = :status', { status: ArticleStatus.PUBLISHED })
+        .andWhere('article.deleted_at IS NULL')
+        .getRawOne<{
+          totalViewCount: string;
+          totalLikeCount: string;
+          totalPublishedCount: string;
+        }>();
+
+      return {
+        totalViewCount: parseInt(result?.totalViewCount || '0', 10),
+        totalLikeCount: parseInt(result?.totalLikeCount || '0', 10),
+        totalPublishedCount: parseInt(result?.totalPublishedCount || '0', 10),
+      };
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取文章统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 获取分类统计
    */
   async getCategoryStats(

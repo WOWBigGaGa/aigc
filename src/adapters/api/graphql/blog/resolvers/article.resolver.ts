@@ -11,14 +11,13 @@ import { CreateArticleUsecase } from '@usecases/blog/create-article.usecase';
 import { UpdateArticleUsecase } from '@usecases/blog/update-article.usecase';
 import { DeleteArticleUsecase } from '@usecases/blog/delete-article.usecase';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
-import { ArticleRepository } from '@src/modules/blog/repositories/article.repository';
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
+import { ArticleStatus } from '@src/modules/blog/blog.types';
 
 @Resolver(() => ArticleDTO)
 export class ArticleResolver {
   constructor(
     private readonly articleQueryService: ArticleQueryService,
-    private readonly articleRepository: ArticleRepository,
     private readonly createArticleUsecase: CreateArticleUsecase,
     private readonly updateArticleUsecase: UpdateArticleUsecase,
     private readonly deleteArticleUsecase: DeleteArticleUsecase,
@@ -96,30 +95,25 @@ export class ArticleResolver {
   @UseGuards(JwtAuthGuard)
   async toggleArticleStatus(
     @Args('id') id: string,
-    @Args('status') status: string,
+    @Args('status', { type: () => ArticleStatus }) status: ArticleStatus,
     @Context()
     context: {
       req: { user: { sub: number; accessGroup: string[]; username: string; email: string | null } };
     },
   ): Promise<ArticleDTO> {
     const session = mapJwtToUsecaseSession(context.req.user);
-    const article = await this.articleRepository.findById(id);
-    if (!article) {
-      throw new Error('文章不存在');
-    }
-    const input = { ...article, status: status as any };
-    return this.updateArticleUsecase.execute({ id, input, session });
+    return this.updateArticleUsecase.execute({ id, input: { status }, session });
   }
 
   @Mutation(() => ArticleDTO)
   async incrementViewCount(@Args('id') id: string): Promise<ArticleDTO> {
-    await this.articleRepository.incrementViewCount(id);
+    await this.articleQueryService.incrementViewCount(id);
     return this.articleQueryService.getArticleById(id) as Promise<ArticleDTO>;
   }
 
   @Mutation(() => ArticleDTO)
   async incrementLikeCount(@Args('id') id: string): Promise<ArticleDTO> {
-    await this.articleRepository.incrementLikeCount(id);
+    await this.articleQueryService.incrementLikeCount(id);
     return this.articleQueryService.getArticleById(id) as Promise<ArticleDTO>;
   }
 }

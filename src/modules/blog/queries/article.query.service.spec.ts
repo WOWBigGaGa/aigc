@@ -158,6 +158,58 @@ describe('ArticleQueryService', () => {
 
       await expect(service.getArticles({}, pagination)).rejects.toThrow(DomainError);
     });
+
+    it('should handle empty keyword search', async () => {
+      const filter: ArticleFilterInput = { keyword: '' };
+      articleRepository.findPublishedWithPagination.mockResolvedValue({
+        items: [mockArticleEntity],
+        total: 1,
+      });
+
+      const result = await service.getArticles(filter, pagination);
+
+      expect(result.items).toHaveLength(1);
+      expect(articleRepository.findPublishedWithPagination).toHaveBeenCalledWith(1, 10);
+    });
+
+    it('should handle whitespace-only keyword', async () => {
+      const filter: ArticleFilterInput = { keyword: '   ' };
+      articleRepository.searchByKeyword.mockResolvedValue({
+        items: [mockArticleEntity],
+        total: 1,
+      });
+
+      const result = await service.getArticles(filter, pagination);
+
+      expect(result.items).toHaveLength(1);
+      expect(articleRepository.searchByKeyword).toHaveBeenCalledWith('   ', 1, 10);
+    });
+
+    it('should handle pagination boundary (page 0)', async () => {
+      const paginationZero: PaginationInput = { page: 0, limit: 10 };
+      articleRepository.findPublishedWithPagination.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const result = await service.getArticles({}, paginationZero);
+
+      expect(result.page).toBe(0);
+      expect(result.items).toHaveLength(0);
+    });
+
+    it('should handle pagination boundary (page 1 with limit 0)', async () => {
+      const paginationZeroLimit: PaginationInput = { page: 1, limit: 0 };
+      articleRepository.findPublishedWithPagination.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const result = await service.getArticles({}, paginationZeroLimit);
+
+      expect(result.pageSize).toBe(0);
+      expect(result.items).toHaveLength(0);
+    });
   });
 
   describe('getArticleById', () => {

@@ -2,8 +2,8 @@ import { UseGuards } from '@nestjs/common';
 import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { CommentDTO } from '../types/comment.dto';
-import { CommentTreeDTO } from '../types/comment-tree.dto';
 import { PaginatedCommentsDTO } from '../types/paginated-comments.dto';
+import { PaginatedPendingCommentsDTO } from '../types/paginated-pending-comments.dto';
 import { CreateCommentInput } from '../inputs/create-comment.input';
 import { PaginationInput } from '../inputs/pagination.input';
 import { CreateCommentUsecase } from '@usecases/blog/create-comment.usecase';
@@ -41,16 +41,16 @@ export class CommentResolver {
     };
   }
 
-  @Query(() => PaginatedCommentsDTO)
+  @Query(() => PaginatedPendingCommentsDTO)
   @UseGuards(JwtAuthGuard)
   async pendingComments(
     @Args('pagination', { nullable: true }) pagination?: PaginationInput,
-  ): Promise<PaginatedCommentsDTO> {
+  ): Promise<PaginatedPendingCommentsDTO> {
     const result = await this.commentQueryService.getPendingComments(
       pagination || { page: 1, limit: 20 },
     );
     return {
-      items: result.items as CommentTreeDTO[],
+      items: result.items,
       total: result.total,
       page: result.page,
       pageSize: result.pageSize,

@@ -139,6 +139,179 @@ describe('Blog Usecases', () => {
         }),
       ).rejects.toThrow(DomainError);
     });
+
+    it('should create article with coverImage', async () => {
+      const articleId = 'article-1';
+      articleRepository.create.mockResolvedValue({
+        ...createMockArticleEntity({ id: articleId }),
+        coverImage: 'https://example.com/cover.jpg',
+      });
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: 'https://example.com/cover.jpg',
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        input: {
+          title: 'Test',
+          content: 'Content',
+          summary: 'Summary',
+          coverImage: 'https://example.com/cover.jpg',
+        },
+        authorId: '3',
+        session: userSession,
+      });
+
+      expect(result.id).toBe(articleId);
+      expect(result.coverImage).toBe('https://example.com/cover.jpg');
+    });
+
+    it('should create article with categoryId', async () => {
+      const articleId = 'article-1';
+      articleRepository.create.mockResolvedValue({
+        ...createMockArticleEntity({ id: articleId }),
+        categoryId: 'cat-1',
+      });
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: null,
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: 'cat-1',
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        input: { title: 'Test', content: 'Content', summary: 'Summary', categoryId: 'cat-1' },
+        authorId: '3',
+        session: userSession,
+      });
+
+      expect(result.id).toBe(articleId);
+      expect(result.categoryId).toBe('cat-1');
+    });
+
+    it('should create article with isPinned true', async () => {
+      const articleId = 'article-1';
+      articleRepository.create.mockResolvedValue({
+        ...createMockArticleEntity({ id: articleId }),
+        isPinned: true,
+      });
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: null,
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: true,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        input: { title: 'Test', content: 'Content', summary: 'Summary', isPinned: true },
+        authorId: '3',
+        session: userSession,
+      });
+
+      expect(result.id).toBe(articleId);
+      expect(result.isPinned).toBe(true);
+    });
+
+    it('should normalize empty coverImage to null', async () => {
+      const articleId = 'article-1';
+      articleRepository.create.mockResolvedValue(createMockArticleEntity({ id: articleId }));
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: null,
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await usecase.execute({
+        input: { title: 'Test', content: 'Content', summary: 'Summary', coverImage: '' },
+        authorId: '3',
+        session: userSession,
+      });
+
+      expect(articleRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ coverImage: null }),
+        expect.anything(),
+      );
+    });
+
+    it('should create article within existing transaction', async () => {
+      const articleId = 'article-1';
+      const mockTransactionContext = {} as any;
+      articleRepository.create.mockResolvedValue(createMockArticleEntity({ id: articleId }));
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: articleId,
+        title: 'Test',
+        content: 'Content',
+        coverImage: null,
+        summary: 'Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        input: { title: 'Test', content: 'Content', summary: 'Summary' },
+        authorId: '3',
+        session: userSession,
+        transactionContext: mockTransactionContext,
+      });
+
+      expect(result.id).toBe(articleId);
+      expect(mockTransactionRunner.run).not.toHaveBeenCalled();
+    });
   });
 
   describe('UpdateArticleUsecase', () => {
@@ -243,6 +416,221 @@ describe('Blog Usecases', () => {
           session: userSession,
         }),
       ).rejects.toThrow(DomainError);
+    });
+
+    it('should NOT set publishedAt when status changes from PUBLISHED to ARCHIVED', async () => {
+      const now = new Date('2026-06-01');
+      articleRepository.findById.mockResolvedValue({
+        ...createMockArticleEntity({ publishedAt: now }),
+        status: ArticleStatus.PUBLISHED,
+      });
+      const updatedNow = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.ARCHIVED,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: now,
+        createdAt: updatedNow,
+        updatedAt: updatedNow,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { status: ArticleStatus.ARCHIVED },
+        session: userSession,
+      });
+
+      expect(result.status).toBe(ArticleStatus.ARCHIVED);
+      expect(result.publishedAt).toEqual(now);
+    });
+
+    it('should NOT set publishedAt when article is already published', async () => {
+      const originalPublishedAt = new Date('2026-06-01');
+      articleRepository.findById.mockResolvedValue({
+        ...createMockArticleEntity({ publishedAt: originalPublishedAt }),
+        status: ArticleStatus.PUBLISHED,
+      });
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.PUBLISHED,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: originalPublishedAt,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { status: ArticleStatus.PUBLISHED },
+        session: userSession,
+      });
+
+      expect(result.publishedAt).toEqual(originalPublishedAt);
+    });
+
+    it('should update coverImage', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: 'https://example.com/new-cover.jpg',
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { coverImage: 'https://example.com/new-cover.jpg' },
+        session: userSession,
+      });
+
+      expect(result.coverImage).toBe('https://example.com/new-cover.jpg');
+    });
+
+    it('should update categoryId', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: 'cat-2',
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { categoryId: 'cat-2' },
+        session: userSession,
+      });
+
+      expect(result.categoryId).toBe('cat-2');
+    });
+
+    it('should update isPinned', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: true,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { isPinned: true },
+        session: userSession,
+      });
+
+      expect(result.isPinned).toBe(true);
+    });
+
+    it('should update article within existing transaction', async () => {
+      const mockTransactionContext = {} as any;
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Updated',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: { title: 'Updated' },
+        session: userSession,
+        transactionContext: mockTransactionContext,
+      });
+
+      expect(result.title).toBe('Updated');
+      expect(mockTransactionRunner.run).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty input', async () => {
+      articleRepository.findById.mockResolvedValue(createMockArticleEntity());
+      const now = new Date();
+      articleQueryService.getArticleById.mockResolvedValue({
+        id: 'article-1',
+        title: 'Test Article',
+        content: 'Test Content',
+        coverImage: null,
+        summary: 'Test Summary',
+        status: ArticleStatus.DRAFT,
+        categoryId: null,
+        authorId: '3',
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      const result = await usecase.execute({
+        id: 'article-1',
+        input: {},
+        session: userSession,
+      });
+
+      expect(result.id).toBe('article-1');
     });
   });
 

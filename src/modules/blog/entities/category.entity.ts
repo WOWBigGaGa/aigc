@@ -36,6 +36,7 @@ export class CategoryEntity {
     nullable: true,
     comment: '父分类 ID（支持树形结构）',
   })
+  @Index()
   parentId!: string | null;
 
   @Column({ name: 'sort', type: 'int', default: 0, comment: '排序顺序' })

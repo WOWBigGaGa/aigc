@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -38,6 +39,7 @@ export class ArticleEntity {
     default: ArticleStatus.DRAFT,
     comment: '文章状态：DRAFT-草稿，PUBLISHED-已发布，ARCHIVED-已归档',
   })
+  @Index()
   status!: ArticleStatus;
 
   @Column({
@@ -47,9 +49,11 @@ export class ArticleEntity {
     nullable: true,
     comment: '分类 ID',
   })
+  @Index()
   categoryId!: string | null;
 
   @Column({ name: 'author_id', type: 'char', length: 36, comment: '作者 ID' })
+  @Index()
   authorId!: string;
 
   @Column({
@@ -71,6 +75,7 @@ export class ArticleEntity {
   likeCount!: number;
 
   @Column({ name: 'is_pinned', type: 'tinyint', default: 0, comment: '是否置顶' })
+  @Index()
   isPinned!: boolean;
 
   @Column({
@@ -80,6 +85,7 @@ export class ArticleEntity {
     nullable: true,
     comment: '发布时间',
   })
+  @Index()
   publishedAt!: Date | null;
 
   @CreateDateColumn({

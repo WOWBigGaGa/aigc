@@ -126,6 +126,31 @@ export class ArticleQueryService {
   }
 
   /**
+   * 获取文章聚合统计
+   */
+  async getArticleStats(): Promise<{
+    totalViewCount: number;
+    totalLikeCount: number;
+    totalPublishedCount: number;
+  }> {
+    try {
+      return await this.articleRepository.getArticleStats();
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取文章统计失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 获取分类统计
    */
   async getCategoryStats(): Promise<CategoryStats[]> {
@@ -140,6 +165,50 @@ export class ArticleQueryService {
         BLOG_ERROR.QUERY_FAILED,
         '获取分类统计失败',
         {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 增加文章阅读量
+   */
+  async incrementViewCount(id: string): Promise<void> {
+    try {
+      await this.articleRepository.incrementViewCount(id);
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.UPDATE_FAILED,
+        '增加阅读量失败',
+        {
+          articleId: id,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 增加文章点赞数
+   */
+  async incrementLikeCount(id: string): Promise<void> {
+    try {
+      await this.articleRepository.incrementLikeCount(id);
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.UPDATE_FAILED,
+        '增加点赞数失败',
+        {
+          articleId: id,
           error: error instanceof Error ? error.message : '未知错误',
         },
         error,

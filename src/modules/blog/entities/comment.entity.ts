@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -14,6 +15,7 @@ export class CommentEntity {
   id!: string;
 
   @Column({ name: 'article_id', type: 'char', length: 36, comment: '文章 ID' })
+  @Index()
   articleId!: string;
 
   @Column({ name: 'author_name', type: 'varchar', length: 64, comment: '评论者名称' })
@@ -35,6 +37,7 @@ export class CommentEntity {
     nullable: true,
     comment: '父评论 ID（楼中楼）',
   })
+  @Index()
   parentId!: string | null;
 
   @Column({
@@ -44,6 +47,7 @@ export class CommentEntity {
     default: CommentStatus.PENDING,
     comment: '评论状态：PENDING-待审核，APPROVED-已通过，REJECTED-已驳回，HIDDEN-已隐藏',
   })
+  @Index()
   status!: CommentStatus;
 
   @CreateDateColumn({

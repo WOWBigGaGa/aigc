@@ -2,7 +2,6 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigModule } from '@src/infrastructure/config/config.module';
-import { DatabaseModule } from '@src/infrastructure/database/database.module';
 import { TypeOrmTransactionModule } from '@src/infrastructure/database/transaction/typeorm-transaction.module';
 import { BlogModule } from '@src/modules/blog/blog.module';
 import { BlogGraphQLModule } from '@src/adapters/api/graphql/blog/blog.graphql.module';
@@ -1266,6 +1265,366 @@ describe('Blog Module (e2e)', () => {
 
       const found = await articleRepository.findById(article.id);
       expect(found?.viewCount).toBe(1);
+    });
+
+    it('should search articles by keyword via GraphQL', async () => {
+      const article1 = await articleRepository.create({
+        title: `${testPrefix}Search Test Article Node.js`,
+        content: '# Node.js Tutorial',
+        summary: 'Node.js search test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article1.id);
+
+      const article2 = await articleRepository.create({
+        title: `${testPrefix}Search Test Article React`,
+        content: '# React Tutorial',
+        summary: 'React search test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article2.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              articles(filter: {keyword: "Node"}, pagination: {page: 1, limit: 10}) {
+                items { id title }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.articles.total).toBeGreaterThanOrEqual(1);
+      expect(
+        response.body.data.articles.items.some((item: { title: string }) =>
+          item.title.includes('Node'),
+        ),
+      ).toBe(true);
+    });
+
+    it('should filter articles by category via GraphQL', async () => {
+      const category = await categoryRepository.create({
+        name: `${testPrefix}Filter Category`,
+        slug: `${testPrefix}filter-category`,
+        sort: 0,
+        parentId: null,
+      });
+      seededCategoryIds.push(category.id);
+
+      const article = await articleRepository.create({
+        title: `${testPrefix}Filtered Article`,
+        content: '# Filtered Content',
+        summary: 'Filtered by category',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        categoryId: category.id,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              articles(filter: {categoryId: "${category.id}"}, pagination: {page: 1, limit: 10}) {
+                items { id title }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.articles.total).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should query articles with pagination via GraphQL', async () => {
+      await Promise.all(
+        Array.from({ length: 15 }).map((_, i) =>
+          articleRepository.create({
+            title: `${testPrefix}Pagination Article ${i}`,
+            content: 'Content',
+            summary: `Pagination article ${i}`,
+            authorId: 'test-author-id',
+            status: ArticleStatus.PUBLISHED,
+            viewCount: 0,
+            likeCount: 0,
+            isPinned: false,
+            publishedAt: new Date(),
+          }),
+        ),
+      ).then((articles) => seededArticleIds.push(...articles.map((a) => a.id)));
+
+      const response1 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              articles(pagination: {page: 1, limit: 10}) {
+                items { id }
+                total
+                page
+                pageSize
+              }
+            }
+          `,
+        });
+
+      expect(response1.status).toBe(200);
+      expect(response1.body.data.articles.items.length).toBe(10);
+      expect(response1.body.data.articles.page).toBe(1);
+      expect(response1.body.data.articles.pageSize).toBe(10);
+
+      const response2 = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              articles(pagination: {page: 2, limit: 10}) {
+                items { id }
+                total
+                page
+                pageSize
+              }
+            }
+          `,
+        });
+
+      expect(response2.status).toBe(200);
+      expect(response2.body.data.articles.page).toBe(2);
+    });
+
+    it('should query comments via GraphQL', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}GraphQL Comment Article`,
+        content: '# Comment Test',
+        summary: 'Comment GraphQL test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const comment = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'GraphQL Comment Author',
+        authorEmail: 'graphql-comment@example.com',
+        authorAvatar: '',
+        content: 'GraphQL comment content',
+        status: CommentStatus.APPROVED,
+        parentId: null,
+      });
+      seededCommentIds.push(comment.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              comments(articleId: "${article.id}", pagination: {page: 1, limit: 10}) {
+                items { id content authorName }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.comments.total).toBeGreaterThanOrEqual(1);
+      expect(response.body.data.comments.items.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should return error for non-existent article query', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              article(id: "non-existent-article-id-12345") {
+                id
+                title
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+      expect(response.body.data.article).toBeNull();
+    });
+
+    it('should return error for invalid input when creating article', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createArticle(input: {
+                title: ""
+                content: ""
+                summary: ""
+              }) {
+                id
+                title
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should handle article status transition flow (DRAFT -> PUBLISHED -> ARCHIVED)', async () => {
+      const createResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createArticle(input: {
+                title: "${testPrefix}Status Flow Article"
+                content: "# Status Flow Test"
+                summary: "Status flow test"
+              }) {
+                id
+                status
+                publishedAt
+              }
+            }
+          `,
+        });
+
+      expect(createResponse.status).toBe(200);
+      expect(createResponse.body.data.createArticle.status).toBe('DRAFT');
+      expect(createResponse.body.data.createArticle.publishedAt).toBeNull();
+
+      const articleId = createResponse.body.data.createArticle.id;
+      seededArticleIds.push(articleId);
+
+      const publishResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              toggleArticleStatus(id: "${articleId}", status: "PUBLISHED") {
+                id
+                status
+                publishedAt
+              }
+            }
+          `,
+        });
+
+      expect(publishResponse.status).toBe(200);
+      expect(publishResponse.body.data.toggleArticleStatus.status).toBe('PUBLISHED');
+      expect(publishResponse.body.data.toggleArticleStatus.publishedAt).not.toBeNull();
+
+      const archiveResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              toggleArticleStatus(id: "${articleId}", status: "ARCHIVED") {
+                id
+                status
+              }
+            }
+          `,
+        });
+
+      expect(archiveResponse.status).toBe(200);
+      expect(archiveResponse.body.data.toggleArticleStatus.status).toBe('ARCHIVED');
+    });
+
+    it('should handle comment moderation flow (PENDING -> APPROVED)', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Comment Moderation Article`,
+        content: '# Comment Moderation Test',
+        summary: 'Comment moderation test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const createCommentResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Moderation Test Author"
+                authorEmail: "moderation@example.com"
+                content: "Comment awaiting moderation"
+              }) {
+                id
+                status
+              }
+            }
+          `,
+        });
+
+      expect(createCommentResponse.status).toBe(200);
+      expect(createCommentResponse.body.data.createComment.status).toBe('PENDING');
+
+      const commentId = createCommentResponse.body.data.createComment.id;
+      seededCommentIds.push(commentId);
+
+      const pendingCommentsResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              pendingComments(pagination: {page: 1, limit: 10}) {
+                items { id status }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(pendingCommentsResponse.status).toBe(200);
+      expect(pendingCommentsResponse.body.data.pendingComments.total).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should return error when deleting non-existent article', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              deleteArticle(id: "non-existent-article-id-12345")
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
     });
   });
 

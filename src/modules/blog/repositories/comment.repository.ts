@@ -218,6 +218,27 @@ export class CommentRepository {
   }
 
   /**
+   * 获取评论总数
+   */
+  async count(transactionContext?: PersistenceTransactionContext): Promise<number> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      return await repository.count({
+        where: { deletedAt: IsNull() },
+      });
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '统计评论总数失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 查询评论的层级深度
    */
   async getCommentDepth(

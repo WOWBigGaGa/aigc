@@ -120,6 +120,27 @@ export class CommentQueryService {
   }
 
   /**
+   * 获取评论总数
+   */
+  async getTotalCommentCount(transactionContext?: PersistenceTransactionContext): Promise<number> {
+    try {
+      return await this.commentRepository.count(transactionContext);
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '统计评论总数失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 构建评论树（楼中楼结构）
    */
   private buildCommentTree(comments: CommentEntity[]): CommentTreeNode[] {

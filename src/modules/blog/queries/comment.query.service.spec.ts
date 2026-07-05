@@ -134,6 +134,89 @@ describe('CommentQueryService', () => {
         DomainError,
       );
     });
+
+    it('should build deeply nested comment tree (3 levels)', async () => {
+      const grandchildComment = {
+        id: 'comment-3',
+        articleId: 'article-1',
+        authorName: 'Grandchild Author',
+        authorEmail: 'grandchild@example.com',
+        authorAvatar: '',
+        content: 'Grandchild comment',
+        status: CommentStatus.APPROVED,
+        parentId: 'comment-2',
+        createdAt: new Date('2026-06-15'),
+        updatedAt: new Date('2026-06-15'),
+        deletedAt: null,
+      } as CommentEntity;
+
+      commentRepository.findApprovedByArticle.mockResolvedValue({
+        items: [mockCommentEntity, mockReplyEntity, grandchildComment],
+        total: 3,
+      });
+
+      const result = await service.getCommentsByArticle('article-1', pagination);
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].children).toHaveLength(1);
+      expect(result.items[0].children[0].children).toHaveLength(1);
+      expect(result.items[0].id).toBe('comment-1');
+      expect(result.items[0].children[0].id).toBe('comment-2');
+      expect(result.items[0].children[0].children[0].id).toBe('comment-3');
+    });
+
+    it('should handle multiple top-level comments with children', async () => {
+      const anotherParentComment = {
+        id: 'comment-3',
+        articleId: 'article-1',
+        authorName: 'Another Author',
+        authorEmail: 'another@example.com',
+        authorAvatar: '',
+        content: 'Another parent comment',
+        status: CommentStatus.APPROVED,
+        parentId: null,
+        createdAt: new Date('2026-06-15'),
+        updatedAt: new Date('2026-06-15'),
+        deletedAt: null,
+      } as CommentEntity;
+
+      const replyToAnotherParent = {
+        id: 'comment-4',
+        articleId: 'article-1',
+        authorName: 'Reply Author 2',
+        authorEmail: 'reply2@example.com',
+        authorAvatar: '',
+        content: 'Reply to another parent',
+        status: CommentStatus.APPROVED,
+        parentId: 'comment-3',
+        createdAt: new Date('2026-06-15'),
+        updatedAt: new Date('2026-06-15'),
+        deletedAt: null,
+      } as CommentEntity;
+
+      commentRepository.findApprovedByArticle.mockResolvedValue({
+        items: [mockCommentEntity, mockReplyEntity, anotherParentComment, replyToAnotherParent],
+        total: 4,
+      });
+
+      const result = await service.getCommentsByArticle('article-1', pagination);
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0].children).toHaveLength(1);
+      expect(result.items[1].children).toHaveLength(1);
+    });
+
+    it('should handle empty comments array', async () => {
+      commentRepository.findApprovedByArticle.mockResolvedValue({
+        items: [],
+        total: 0,
+      });
+
+      const result = await service.getCommentsByArticle('article-1', pagination);
+
+      expect(result.items).toHaveLength(0);
+      expect(result.total).toBe(0);
+    });
   });
 
   describe('getPendingComments', () => {
