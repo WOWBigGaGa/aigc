@@ -40,6 +40,25 @@ export class CategoryRepository {
   }
 
   /**
+   * 获取分类总数
+   */
+  async count(transactionContext?: PersistenceTransactionContext): Promise<number> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      return await repository.count();
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '统计分类数量失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 查询根分类（无父分类）
    */
   async findRootCategories(

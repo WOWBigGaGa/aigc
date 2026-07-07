@@ -28,8 +28,7 @@ export class TagQueryService {
 
   async getTagCount(transactionContext?: PersistenceTransactionContext): Promise<number> {
     try {
-      const tags = await this.tagRepository.findAll(transactionContext);
-      return tags.length;
+      return await this.tagRepository.count(transactionContext);
     } catch (error) {
       if (error instanceof DomainError) {
         throw error;

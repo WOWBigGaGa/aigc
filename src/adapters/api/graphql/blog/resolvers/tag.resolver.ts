@@ -7,13 +7,13 @@ import { UpdateTagInput } from '../inputs/update-tag.input';
 import { CreateTagUsecase } from '@usecases/blog/create-tag.usecase';
 import { UpdateTagUsecase } from '@usecases/blog/update-tag.usecase';
 import { DeleteTagUsecase } from '@usecases/blog/delete-tag.usecase';
-import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
+import { TagQueryService } from '@src/modules/blog/queries/tag.query.service';
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 
 @Resolver(() => TagDTO)
 export class TagResolver {
   constructor(
-    private readonly tagRepository: TagRepository,
+    private readonly tagQueryService: TagQueryService,
     private readonly createTagUsecase: CreateTagUsecase,
     private readonly updateTagUsecase: UpdateTagUsecase,
     private readonly deleteTagUsecase: DeleteTagUsecase,
@@ -21,7 +21,7 @@ export class TagResolver {
 
   @Query(() => [TagDTO])
   async tags(): Promise<TagDTO[]> {
-    return this.tagRepository.findAll();
+    return this.tagQueryService.getAllTags();
   }
 
   @Mutation(() => TagDTO)

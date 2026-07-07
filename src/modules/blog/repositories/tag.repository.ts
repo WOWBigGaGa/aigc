@@ -42,6 +42,25 @@ export class TagRepository {
   }
 
   /**
+   * 获取标签总数
+   */
+  async count(transactionContext?: PersistenceTransactionContext): Promise<number> {
+    try {
+      const repository = this.getTagRepository(transactionContext);
+      return await repository.count();
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '统计标签数量失败',
+        {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 根据 ID 查询标签
    */
   async findById(

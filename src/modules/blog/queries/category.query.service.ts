@@ -30,8 +30,7 @@ export class CategoryQueryService {
 
   async getCategoryCount(transactionContext?: PersistenceTransactionContext): Promise<number> {
     try {
-      const categories = await this.categoryRepository.findAll(transactionContext);
-      return categories.length;
+      return await this.categoryRepository.count(transactionContext);
     } catch (error) {
       if (error instanceof DomainError) {
         throw error;

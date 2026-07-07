@@ -306,16 +306,16 @@ describe('Blog Resolvers', () => {
           updatedAt: new Date(),
         },
       ];
-      categoryRepository.findAll.mockResolvedValue(mockCategories);
+      categoryQueryService.getAllCategories.mockResolvedValue(mockCategories);
 
       const result = await categoryResolver.categories();
 
-      expect(categoryRepository.findAll).toHaveBeenCalled();
+      expect(categoryQueryService.getAllCategories).toHaveBeenCalled();
       expect(result.length).toBe(1);
     });
 
     it('should return empty array when no categories', async () => {
-      categoryRepository.findAll.mockResolvedValue([]);
+      categoryQueryService.getAllCategories.mockResolvedValue([]);
 
       const result = await categoryResolver.categories();
 
@@ -334,16 +334,16 @@ describe('Blog Resolvers', () => {
           updatedAt: new Date(),
         },
       ];
-      tagRepository.findAll.mockResolvedValue(mockTags);
+      tagQueryService.getAllTags.mockResolvedValue(mockTags);
 
       const result = await tagResolver.tags();
 
-      expect(tagRepository.findAll).toHaveBeenCalled();
+      expect(tagQueryService.getAllTags).toHaveBeenCalled();
       expect(result.length).toBe(1);
     });
 
     it('should return empty array when no tags', async () => {
-      tagRepository.findAll.mockResolvedValue([]);
+      tagQueryService.getAllTags.mockResolvedValue([]);
 
       const result = await tagResolver.tags();
 

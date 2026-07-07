@@ -7,13 +7,13 @@ import { UpdateCategoryInput } from '../inputs/update-category.input';
 import { CreateCategoryUsecase } from '@usecases/blog/create-category.usecase';
 import { UpdateCategoryUsecase } from '@usecases/blog/update-category.usecase';
 import { DeleteCategoryUsecase } from '@usecases/blog/delete-category.usecase';
-import { CategoryRepository } from '@src/modules/blog/repositories/category.repository';
+import { CategoryQueryService } from '@src/modules/blog/queries/category.query.service';
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 
 @Resolver(() => CategoryDTO)
 export class CategoryResolver {
   constructor(
-    private readonly categoryRepository: CategoryRepository,
+    private readonly categoryQueryService: CategoryQueryService,
     private readonly createCategoryUsecase: CreateCategoryUsecase,
     private readonly updateCategoryUsecase: UpdateCategoryUsecase,
     private readonly deleteCategoryUsecase: DeleteCategoryUsecase,
@@ -21,7 +21,7 @@ export class CategoryResolver {
 
   @Query(() => [CategoryDTO])
   async categories(): Promise<CategoryDTO[]> {
-    return this.categoryRepository.findAll();
+    return this.categoryQueryService.getAllCategories();
   }
 
   @Mutation(() => CategoryDTO)
