@@ -1626,6 +1626,179 @@ describe('Blog Module (e2e)', () => {
       expect(response.status).toBe(200);
       expect(response.body.errors).toBeDefined();
     });
+
+    it('should query adjacent articles for middle article', async () => {
+      const article1 = await articleRepository.create({
+        title: `${testPrefix}Adjacent Article 1`,
+        content: '# Article 1',
+        summary: 'First article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(Date.now() - 3600000),
+      });
+      seededArticleIds.push(article1.id);
+
+      const article2 = await articleRepository.create({
+        title: `${testPrefix}Adjacent Article 2`,
+        content: '# Article 2',
+        summary: 'Middle article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(Date.now() - 1800000),
+      });
+      seededArticleIds.push(article2.id);
+
+      const article3 = await articleRepository.create({
+        title: `${testPrefix}Adjacent Article 3`,
+        content: '# Article 3',
+        summary: 'Last article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article3.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              adjacentArticles(id: "${article2.id}") {
+                prev { id title }
+                next { id title }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.adjacentArticles.prev.id).toBe(article1.id);
+      expect(response.body.data.adjacentArticles.prev.title).toBe(
+        `${testPrefix}Adjacent Article 1`,
+      );
+      expect(response.body.data.adjacentArticles.next.id).toBe(article3.id);
+      expect(response.body.data.adjacentArticles.next.title).toBe(
+        `${testPrefix}Adjacent Article 3`,
+      );
+    });
+
+    it('should query adjacent articles for first article', async () => {
+      const article1 = await articleRepository.create({
+        title: `${testPrefix}First Article`,
+        content: '# First',
+        summary: 'First article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(Date.now() - 3600000),
+      });
+      seededArticleIds.push(article1.id);
+
+      const article2 = await articleRepository.create({
+        title: `${testPrefix}Second Article`,
+        content: '# Second',
+        summary: 'Second article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article2.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              adjacentArticles(id: "${article1.id}") {
+                prev { id }
+                next { id title }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.adjacentArticles.prev).toBeNull();
+      expect(response.body.data.adjacentArticles.next.id).toBe(article2.id);
+    });
+
+    it('should query adjacent articles for last article', async () => {
+      const article1 = await articleRepository.create({
+        title: `${testPrefix}Prev Article`,
+        content: '# Prev',
+        summary: 'Previous article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(Date.now() - 3600000),
+      });
+      seededArticleIds.push(article1.id);
+
+      const article2 = await articleRepository.create({
+        title: `${testPrefix}Last Article`,
+        content: '# Last',
+        summary: 'Last article',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article2.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              adjacentArticles(id: "${article2.id}") {
+                prev { id title }
+                next { id }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.adjacentArticles.prev.id).toBe(article1.id);
+      expect(response.body.data.adjacentArticles.next).toBeNull();
+    });
+
+    it('should return null prev/next for non-existent article', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              adjacentArticles(id: "non-existent-article-id-12345") {
+                prev { id }
+                next { id }
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.adjacentArticles.prev).toBeNull();
+      expect(response.body.data.adjacentArticles.next).toBeNull();
+    });
   });
 
   async function cleanupSeededData(): Promise<void> {

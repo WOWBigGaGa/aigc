@@ -228,14 +228,14 @@ export class ArticleQueryService {
           ? {
               id: result.prev.id,
               title: result.prev.title,
-              slug: result.prev.slug,
+              slug: result.prev.slug ?? result.prev.id,
             }
           : undefined,
         next: result.next
           ? {
               id: result.next.id,
               title: result.next.title,
-              slug: result.next.slug,
+              slug: result.next.slug ?? result.next.id,
             }
           : undefined,
       };
