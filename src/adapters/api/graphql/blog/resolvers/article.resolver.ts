@@ -3,6 +3,7 @@ import { Args, Context, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { ArticleDTO } from '../types/article.dto';
 import { PaginatedArticlesDTO } from '../types/paginated-articles.dto';
+import { AdjacentArticlesDTO } from '../types/adjacent-articles.dto';
 import { CreateArticleInput } from '../inputs/create-article.input';
 import { UpdateArticleInput } from '../inputs/update-article.input';
 import { ArticleFilterInput } from '../inputs/article-filter.input';
@@ -44,6 +45,11 @@ export class ArticleResolver {
   @Query(() => ArticleDTO, { nullable: true })
   async article(@Args('id') id: string): Promise<ArticleDTO | null> {
     return this.articleQueryService.getArticleById(id);
+  }
+
+  @Query(() => AdjacentArticlesDTO)
+  async adjacentArticles(@Args('id') id: string): Promise<AdjacentArticlesDTO> {
+    return this.articleQueryService.getAdjacentArticles(id);
   }
 
   @Mutation(() => ArticleDTO)

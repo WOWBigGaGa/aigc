@@ -10,6 +10,7 @@ import {
   PaginatedResult,
   Archive,
   CategoryStats,
+  AdjacentArticles,
 } from '../blog.types';
 import type { PersistenceTransactionContext } from '@app-types/common/transaction.types';
 
@@ -207,6 +208,44 @@ export class ArticleQueryService {
       throw new DomainError(
         BLOG_ERROR.UPDATE_FAILED,
         '增加点赞数失败',
+        {
+          articleId: id,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 获取相邻文章（上一篇和下一篇）
+   */
+  async getAdjacentArticles(id: string): Promise<AdjacentArticles> {
+    try {
+      const result = await this.articleRepository.findAdjacentArticles(id);
+      return {
+        prev: result.prev
+          ? {
+              id: result.prev.id,
+              title: result.prev.title,
+              slug: result.prev.slug,
+            }
+          : undefined,
+        next: result.next
+          ? {
+              id: result.next.id,
+              title: result.next.title,
+              slug: result.next.slug,
+            }
+          : undefined,
+      };
+    } catch (error) {
+      if (error instanceof DomainError) {
+        throw error;
+      }
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取相邻文章失败',
         {
           articleId: id,
           error: error instanceof Error ? error.message : '未知错误',

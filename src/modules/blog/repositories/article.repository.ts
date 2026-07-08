@@ -2,7 +2,7 @@ import type { PersistenceTransactionContext } from '@app-types/common/transactio
 import { BLOG_ERROR, DomainError } from '@core/common/errors/domain-error';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Like, Repository } from 'typeorm';
+import { IsNull, Like, LessThan, MoreThan, Repository, FindOperator } from 'typeorm';
 import { getTypeOrmEntityManager } from '@src/infrastructure/database/transaction/typeorm-persistence-transaction-context';
 import { ArticleEntity } from '../entities/article.entity';
 import { ArticleStatus, ArticleUpdateData } from '../blog.types';
@@ -440,6 +440,55 @@ export class ArticleRepository {
         BLOG_ERROR.QUERY_FAILED,
         '获取分类统计失败',
         {
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
+   * 获取相邻文章（上一篇和下一篇）
+   */
+  async findAdjacentArticles(
+    articleId: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<{ prev: ArticleEntity | null; next: ArticleEntity | null }> {
+    try {
+      const repository = this.getRepository(transactionContext);
+      const currentArticle = await repository.findOne({
+        where: { id: articleId, deletedAt: IsNull() },
+      });
+
+      if (!currentArticle || !currentArticle.publishedAt) {
+        return { prev: null, next: null };
+      }
+
+      const prevArticle = await repository.findOne({
+        where: {
+          status: ArticleStatus.PUBLISHED,
+          deletedAt: IsNull(),
+          publishedAt: LessThan(currentArticle.publishedAt) as FindOperator<Date>,
+        },
+        order: { publishedAt: 'DESC' },
+      });
+
+      const nextArticle = await repository.findOne({
+        where: {
+          status: ArticleStatus.PUBLISHED,
+          deletedAt: IsNull(),
+          publishedAt: MoreThan(currentArticle.publishedAt) as FindOperator<Date>,
+        },
+        order: { publishedAt: 'ASC' },
+      });
+
+      return { prev: prevArticle, next: nextArticle };
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '获取相邻文章失败',
+        {
+          articleId,
           error: error instanceof Error ? error.message : '未知错误',
         },
         error,

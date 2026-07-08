@@ -247,3 +247,16 @@ export interface CategoryStats {
   categoryName: string;
   articleCount: number;
 }
+
+// 相邻文章视图
+export interface AdjacentArticle {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+// 相邻文章结果
+export interface AdjacentArticles {
+  prev?: AdjacentArticle;
+  next?: AdjacentArticle;
+}

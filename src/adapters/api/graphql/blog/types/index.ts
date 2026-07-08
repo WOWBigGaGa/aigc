@@ -10,3 +10,4 @@ export { ArchiveDTO } from './archive.dto';
 export { DashboardStatsDTO } from './dashboard-stats.dto';
 export { PaginatedArticlesDTO } from './paginated-articles.dto';
 export { PaginatedCommentsDTO } from './paginated-comments.dto';
+export { AdjacentArticlesDTO } from './adjacent-articles.dto';

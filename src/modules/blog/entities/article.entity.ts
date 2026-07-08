@@ -17,6 +17,10 @@ export class ArticleEntity {
   @Column({ name: 'title', type: 'varchar', length: 255, comment: '文章标题' })
   title!: string;
 
+  @Column({ name: 'slug', type: 'varchar', length: 255, comment: '文章 slug' })
+  @Index({ unique: true })
+  slug!: string;
+
   @Column({ name: 'content', type: 'longtext', comment: '文章内容（Markdown）' })
   content!: string;
 
