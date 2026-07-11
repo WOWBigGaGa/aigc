@@ -468,7 +468,7 @@ export class ArticleRepository {
         where: {
           status: ArticleStatus.PUBLISHED,
           deletedAt: IsNull(),
-          publishedAt: LessThan(currentArticle.publishedAt) as FindOperator<Date>,
+          publishedAt: LessThan(currentArticle.publishedAt),
         },
         order: { publishedAt: 'DESC' },
       });
@@ -477,7 +477,7 @@ export class ArticleRepository {
         where: {
           status: ArticleStatus.PUBLISHED,
           deletedAt: IsNull(),
-          publishedAt: MoreThan(currentArticle.publishedAt) as FindOperator<Date>,
+          publishedAt: MoreThan(currentArticle.publishedAt),
         },
         order: { publishedAt: 'ASC' },
       });

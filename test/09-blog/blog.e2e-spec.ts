@@ -1799,6 +1799,381 @@ describe('Blog Module (e2e)', () => {
       expect(response.body.data.adjacentArticles.prev).toBeNull();
       expect(response.body.data.adjacentArticles.next).toBeNull();
     });
+
+    it('should increment like count via GraphQL mutation', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Like Count Mutation Article`,
+        content: '# Like Count Test',
+        summary: 'Like count mutation test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 5,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              incrementLikeCount(id: "${article.id}") {
+                id
+                likeCount
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.incrementLikeCount.id).toBe(article.id);
+      expect(response.body.data.incrementLikeCount.likeCount).toBe(6);
+    });
+
+    it('should return error when incrementing like count for non-existent article', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              incrementLikeCount(id: "non-existent-article-id-12345") {
+                id
+                likeCount
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should create reply comment with parentId via GraphQL mutation', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Reply Comment Article`,
+        content: '# Reply Comment Test',
+        summary: 'Reply comment test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const parentResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Parent Author"
+                authorEmail: "parent@example.com"
+                content: "Parent comment"
+              }) {
+                id
+                status
+                parentId
+              }
+            }
+          `,
+        });
+
+      expect(parentResponse.status).toBe(200);
+      expect(parentResponse.body.data.createComment.status).toBe('PENDING');
+      expect(parentResponse.body.data.createComment.parentId).toBeNull();
+
+      const parentCommentId = parentResponse.body.data.createComment.id;
+      seededCommentIds.push(parentCommentId);
+
+      const replyResponse = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Reply Author"
+                authorEmail: "reply@example.com"
+                content: "Reply comment"
+                parentId: "${parentCommentId}"
+              }) {
+                id
+                status
+                parentId
+              }
+            }
+          `,
+        });
+
+      expect(replyResponse.status).toBe(200);
+      expect(replyResponse.body.data.createComment.status).toBe('PENDING');
+      expect(replyResponse.body.data.createComment.parentId).toBe(parentCommentId);
+
+      seededCommentIds.push(replyResponse.body.data.createComment.id);
+    });
+
+    it('should return error when comment depth exceeds 3 levels', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Depth Limit Article`,
+        content: '# Depth Limit Test',
+        summary: 'Depth limit test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const level1 = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'Level 1',
+        authorEmail: 'level1@example.com',
+        authorAvatar: '',
+        content: 'Level 1 comment',
+        status: CommentStatus.APPROVED,
+        parentId: null,
+      });
+      seededCommentIds.push(level1.id);
+
+      const level2 = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'Level 2',
+        authorEmail: 'level2@example.com',
+        authorAvatar: '',
+        content: 'Level 2 comment',
+        status: CommentStatus.APPROVED,
+        parentId: level1.id,
+      });
+      seededCommentIds.push(level2.id);
+
+      const level3 = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'Level 3',
+        authorEmail: 'level3@example.com',
+        authorAvatar: '',
+        content: 'Level 3 comment',
+        status: CommentStatus.APPROVED,
+        parentId: level2.id,
+      });
+      seededCommentIds.push(level3.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Level 4"
+                authorEmail: "level4@example.com"
+                content: "Level 4 comment"
+                parentId: "${level3.id}"
+              }) {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should return error when creating comment with empty content', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Empty Content Article`,
+        content: '# Empty Content Test',
+        summary: 'Empty content test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Test Author"
+                authorEmail: "test@example.com"
+                content: ""
+              }) {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should return error when creating comment with invalid email', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Invalid Email Article`,
+        content: '# Invalid Email Test',
+        summary: 'Invalid email test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: "Test Author"
+                authorEmail: "invalid-email"
+                content: "Test comment"
+              }) {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should return error when creating comment with empty author name', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Empty Author Article`,
+        content: '# Empty Author Test',
+        summary: 'Empty author test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            mutation {
+              createComment(input: {
+                articleId: "${article.id}"
+                authorName: ""
+                authorEmail: "test@example.com"
+                content: "Test comment"
+              }) {
+                id
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.errors).toBeDefined();
+    });
+
+    it('should return empty comments for non-existent article', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              comments(articleId: "non-existent-article-id-12345", pagination: {page: 1, limit: 10}) {
+                items { id content }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.comments).toBeDefined();
+      expect(response.body.data.comments.total).toBe(0);
+      expect(response.body.data.comments.items).toHaveLength(0);
+    });
+
+    it('should query comments with tree structure via GraphQL', async () => {
+      const article = await articleRepository.create({
+        title: `${testPrefix}Comment Tree GraphQL Article`,
+        content: '# Comment Tree Test',
+        summary: 'Comment tree GraphQL test',
+        authorId: 'test-author-id',
+        status: ArticleStatus.PUBLISHED,
+        viewCount: 0,
+        likeCount: 0,
+        isPinned: false,
+        publishedAt: new Date(),
+      });
+      seededArticleIds.push(article.id);
+
+      const parentComment = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'Tree Parent Author',
+        authorEmail: 'tree-parent@example.com',
+        authorAvatar: '',
+        content: 'Tree parent comment',
+        status: CommentStatus.APPROVED,
+        parentId: null,
+      });
+      seededCommentIds.push(parentComment.id);
+
+      const childComment = await commentRepository.create({
+        articleId: article.id,
+        authorName: 'Tree Child Author',
+        authorEmail: 'tree-child@example.com',
+        authorAvatar: '',
+        content: 'Tree child comment',
+        status: CommentStatus.APPROVED,
+        parentId: parentComment.id,
+      });
+      seededCommentIds.push(childComment.id);
+
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `
+            query {
+              comments(articleId: "${article.id}", pagination: {page: 1, limit: 10}) {
+                items {
+                  id
+                  content
+                  children {
+                    id
+                    content
+                  }
+                }
+                total
+              }
+            }
+          `,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.comments.total).toBeGreaterThanOrEqual(1);
+      expect(response.body.data.comments.items[0].id).toBe(parentComment.id);
+      expect(response.body.data.comments.items[0].children).toBeDefined();
+      expect(response.body.data.comments.items[0].children.length).toBeGreaterThanOrEqual(1);
+      expect(response.body.data.comments.items[0].children[0].id).toBe(childComment.id);
+    });
   });
 
   async function cleanupSeededData(): Promise<void> {
