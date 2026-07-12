@@ -22,17 +22,20 @@ export class CommentQueryService {
   ): Promise<PaginatedResult<CommentTreeNode>> {
     try {
       const { page, limit } = pagination;
-      const result = await this.commentRepository.findApprovedByArticle(articleId, page, limit);
 
-      // 构建评论树
-      const tree = this.buildCommentTree(result.items);
+      const allComments = await this.commentRepository.findApprovedByArticleWithChildren(articleId);
 
-      const totalPages = Math.ceil(result.total / limit);
+      const tree = this.buildCommentTree(allComments);
+
+      const total = tree.length;
+      const totalPages = Math.ceil(total / limit);
       const hasNext = page < totalPages;
 
+      const paginatedItems = tree.slice((page - 1) * limit, page * limit);
+
       return {
-        items: tree,
-        total: result.total,
+        items: paginatedItems,
+        total,
         page,
         pageSize: limit,
         pageInfo: {

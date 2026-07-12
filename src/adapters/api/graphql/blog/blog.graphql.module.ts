@@ -6,9 +6,17 @@ import { CommentResolver } from './resolvers/comment.resolver';
 import { CategoryResolver } from './resolvers/category.resolver';
 import { TagResolver } from './resolvers/tag.resolver';
 import { DashboardResolver } from './resolvers/dashboard.resolver';
+import { FriendLinkResolver } from './resolvers/friend-link.resolver';
 
 @Module({
   imports: [BlogModule, BlogUsecasesModule],
-  providers: [ArticleResolver, CommentResolver, CategoryResolver, TagResolver, DashboardResolver],
+  providers: [
+    ArticleResolver,
+    CommentResolver,
+    CategoryResolver,
+    TagResolver,
+    DashboardResolver,
+    FriendLinkResolver,
+  ],
 })
 export class BlogGraphQLModule {}

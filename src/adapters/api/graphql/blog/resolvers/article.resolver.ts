@@ -11,6 +11,7 @@ import { PaginationInput } from '../inputs/pagination.input';
 import { CreateArticleUsecase } from '@usecases/blog/create-article.usecase';
 import { UpdateArticleUsecase } from '@usecases/blog/update-article.usecase';
 import { DeleteArticleUsecase } from '@usecases/blog/delete-article.usecase';
+import { LikeArticleUsecase } from '@usecases/blog/like-article.usecase';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { mapJwtToUsecaseSession } from '@app-types/auth/session.types';
 import { ArticleStatus } from '@src/modules/blog/blog.types';
@@ -22,6 +23,7 @@ export class ArticleResolver {
     private readonly createArticleUsecase: CreateArticleUsecase,
     private readonly updateArticleUsecase: UpdateArticleUsecase,
     private readonly deleteArticleUsecase: DeleteArticleUsecase,
+    private readonly likeArticleUsecase: LikeArticleUsecase,
   ) {}
 
   @Query(() => PaginatedArticlesDTO)
@@ -118,8 +120,18 @@ export class ArticleResolver {
   }
 
   @Mutation(() => ArticleDTO)
-  async incrementLikeCount(@Args('id') id: string): Promise<ArticleDTO> {
-    await this.articleQueryService.incrementLikeCount(id);
-    return this.articleQueryService.getArticleById(id) as Promise<ArticleDTO>;
+  async incrementLikeCount(
+    @Args('id') id: string,
+    @Context()
+    context: {
+      req?: {
+        user?: { sub: number; accessGroup: string[]; username: string; email: string | null };
+        ip?: string;
+      };
+    },
+  ): Promise<ArticleDTO> {
+    const session = context.req?.user ? mapJwtToUsecaseSession(context.req.user) : undefined;
+    const ipAddress = context.req?.ip;
+    return this.likeArticleUsecase.execute({ id, session, ipAddress });
   }
 }

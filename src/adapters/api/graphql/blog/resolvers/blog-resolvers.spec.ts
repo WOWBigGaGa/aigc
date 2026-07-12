@@ -4,16 +4,19 @@ import { CommentResolver } from './comment.resolver';
 import { CategoryResolver } from './category.resolver';
 import { TagResolver } from './tag.resolver';
 import { DashboardResolver } from './dashboard.resolver';
+import { FriendLinkResolver } from './friend-link.resolver';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
 import { CategoryQueryService } from '@src/modules/blog/queries/category.query.service';
 import { TagQueryService } from '@src/modules/blog/queries/tag.query.service';
+import { FriendLinkQueryService } from '@src/modules/blog/queries/friend-link.query.service';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
 import { CategoryRepository } from '@src/modules/blog/repositories/category.repository';
 import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
 import { CreateArticleUsecase } from '@usecases/blog/create-article.usecase';
 import { UpdateArticleUsecase } from '@usecases/blog/update-article.usecase';
 import { DeleteArticleUsecase } from '@usecases/blog/delete-article.usecase';
+import { LikeArticleUsecase } from '@usecases/blog/like-article.usecase';
 import { CreateCommentUsecase } from '@usecases/blog/create-comment.usecase';
 import { ApproveCommentUsecase } from '@usecases/blog/approve-comment.usecase';
 import { RejectCommentUsecase } from '@usecases/blog/reject-comment.usecase';
@@ -32,11 +35,13 @@ describe('Blog Resolvers', () => {
   let categoryResolver: CategoryResolver;
   let tagResolver: TagResolver;
   let dashboardResolver: DashboardResolver;
+  let friendLinkResolver: FriendLinkResolver;
 
   let articleQueryService: jest.Mocked<ArticleQueryService>;
   let commentQueryService: jest.Mocked<CommentQueryService>;
   let categoryQueryService: jest.Mocked<CategoryQueryService>;
   let tagQueryService: jest.Mocked<TagQueryService>;
+  let friendLinkQueryService: jest.Mocked<FriendLinkQueryService>;
   let categoryRepository: jest.Mocked<CategoryRepository>;
   let tagRepository: jest.Mocked<TagRepository>;
 
@@ -66,6 +71,12 @@ describe('Blog Resolvers', () => {
       getTagCount: jest.fn(),
     } as any;
 
+    friendLinkQueryService = {
+      getAllFriendLinks: jest.fn(),
+      getActiveFriendLinks: jest.fn(),
+      getFriendLinkCount: jest.fn(),
+    } as any;
+
     categoryRepository = {
       findAll: jest.fn(),
     } as any;
@@ -81,16 +92,19 @@ describe('Blog Resolvers', () => {
         CategoryResolver,
         TagResolver,
         DashboardResolver,
+        FriendLinkResolver,
         { provide: ArticleQueryService, useValue: articleQueryService },
         { provide: CommentQueryService, useValue: commentQueryService },
         { provide: CategoryQueryService, useValue: categoryQueryService },
         { provide: TagQueryService, useValue: tagQueryService },
+        { provide: FriendLinkQueryService, useValue: friendLinkQueryService },
         { provide: CategoryRepository, useValue: categoryRepository },
         { provide: TagRepository, useValue: tagRepository },
         { provide: CommentRepository, useValue: {} },
         { provide: CreateArticleUsecase, useValue: { execute: jest.fn() } },
         { provide: UpdateArticleUsecase, useValue: { execute: jest.fn() } },
         { provide: DeleteArticleUsecase, useValue: { execute: jest.fn() } },
+        { provide: LikeArticleUsecase, useValue: { execute: jest.fn() } },
         { provide: CreateCommentUsecase, useValue: { execute: jest.fn() } },
         { provide: ApproveCommentUsecase, useValue: { execute: jest.fn() } },
         { provide: RejectCommentUsecase, useValue: { execute: jest.fn() } },
@@ -109,6 +123,7 @@ describe('Blog Resolvers', () => {
     categoryResolver = module.get(CategoryResolver);
     tagResolver = module.get(TagResolver);
     dashboardResolver = module.get(DashboardResolver);
+    friendLinkResolver = module.get(FriendLinkResolver);
   });
 
   describe('ArticleResolver', () => {
@@ -224,9 +239,32 @@ describe('Blog Resolvers', () => {
       articleQueryService.incrementLikeCount.mockResolvedValue();
       articleQueryService.getArticleById.mockResolvedValue({ ...mockArticle, likeCount: 1 });
 
-      const result = await articleResolver.incrementLikeCount('1');
+      const mockLikeResult = { ...mockArticle, likeCount: 1 };
+      const mockLikeService = {
+        execute: jest.fn().mockResolvedValue(mockLikeResult),
+      };
 
-      expect(articleQueryService.incrementLikeCount).toHaveBeenCalledWith('1');
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          ArticleResolver,
+          { provide: ArticleQueryService, useValue: articleQueryService },
+          { provide: CommentQueryService, useValue: commentQueryService },
+          { provide: CategoryQueryService, useValue: categoryQueryService },
+          { provide: TagQueryService, useValue: tagQueryService },
+          { provide: CategoryRepository, useValue: categoryRepository },
+          { provide: TagRepository, useValue: tagRepository },
+          { provide: CommentRepository, useValue: {} },
+          { provide: CreateArticleUsecase, useValue: { execute: jest.fn() } },
+          { provide: UpdateArticleUsecase, useValue: { execute: jest.fn() } },
+          { provide: DeleteArticleUsecase, useValue: { execute: jest.fn() } },
+          { provide: LikeArticleUsecase, useValue: mockLikeService },
+        ],
+      }).compile();
+
+      const resolver = module.get<ArticleResolver>(ArticleResolver);
+      const result = await resolver.incrementLikeCount('1', {});
+
+      expect(mockLikeService.execute).toHaveBeenCalled();
       expect(result?.likeCount).toBe(1);
     });
   });
@@ -417,6 +455,62 @@ describe('Blog Resolvers', () => {
       expect(result.totalViewCount).toBe(0);
       expect(result.totalLikeCount).toBe(0);
       expect(result.pendingCommentCount).toBe(0);
+    });
+  });
+
+  describe('FriendLinkResolver', () => {
+    it('should return all friend links', async () => {
+      const mockLinks = [
+        {
+          id: 'link-1',
+          name: 'Test Blog',
+          url: 'https://test.com',
+          description: 'A test blog',
+          logo: 'https://test.com/logo.png',
+          sort: 0,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+      friendLinkQueryService.getAllFriendLinks.mockResolvedValue(mockLinks);
+
+      const result = await friendLinkResolver.friendLinks();
+
+      expect(friendLinkQueryService.getAllFriendLinks).toHaveBeenCalled();
+      expect(result.length).toBe(1);
+      expect(result[0].name).toBe('Test Blog');
+    });
+
+    it('should return active friend links', async () => {
+      const mockLinks = [
+        {
+          id: 'link-1',
+          name: 'Active Blog',
+          url: 'https://active.com',
+          description: 'An active blog',
+          logo: null,
+          sort: 0,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+      friendLinkQueryService.getActiveFriendLinks.mockResolvedValue(mockLinks);
+
+      const result = await friendLinkResolver.activeFriendLinks();
+
+      expect(friendLinkQueryService.getActiveFriendLinks).toHaveBeenCalled();
+      expect(result.length).toBe(1);
+      expect(result[0].name).toBe('Active Blog');
+    });
+
+    it('should return empty array when no friend links', async () => {
+      friendLinkQueryService.getAllFriendLinks.mockResolvedValue([]);
+
+      const result = await friendLinkResolver.friendLinks();
+
+      expect(result).toEqual([]);
     });
   });
 });

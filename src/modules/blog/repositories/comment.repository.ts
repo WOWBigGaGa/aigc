@@ -52,6 +52,77 @@ export class CommentRepository {
   }
 
   /**
+   * 使用递归查询获取文章的所有已审核评论（包含子评论）
+   */
+  async findApprovedByArticleWithChildren(
+    articleId: string,
+    transactionContext?: PersistenceTransactionContext,
+  ): Promise<CommentEntity[]> {
+    try {
+      const manager = transactionContext
+        ? getTypeOrmEntityManager(transactionContext)
+        : this.repository.manager;
+
+      const query = `
+        WITH RECURSIVE comment_tree AS (
+          SELECT 
+            c.id, c.article_id, c.author_name, c.author_email, c.author_avatar, 
+            c.content, c.parent_id, c.status, c.created_at, c.updated_at, c.deleted_at,
+            1 as level
+          FROM comment c
+          WHERE c.article_id = ? 
+            AND c.status = ? 
+            AND c.deleted_at IS NULL 
+            AND c.parent_id IS NULL
+          UNION ALL
+          SELECT 
+            c.id, c.article_id, c.author_name, c.author_email, c.author_avatar, 
+            c.content, c.parent_id, c.status, c.created_at, c.updated_at, c.deleted_at,
+            ct.level + 1 as level
+          FROM comment c
+          INNER JOIN comment_tree ct ON c.parent_id = ct.id
+          WHERE c.status = ? 
+            AND c.deleted_at IS NULL
+            AND ct.level < 3
+        )
+        SELECT * FROM comment_tree ORDER BY level, created_at ASC;
+      `;
+
+      const result = await manager.query(query, [
+        articleId,
+        CommentStatus.APPROVED,
+        CommentStatus.APPROVED,
+      ]);
+
+      return result.map((row: Record<string, unknown>) => {
+        const entity = new CommentEntity();
+        entity.id = row.id as string;
+        entity.articleId = row.article_id as string;
+        entity.authorName = row.author_name as string;
+        entity.authorEmail = row.author_email as string;
+        entity.authorAvatar = row.author_avatar as string;
+        entity.content = row.content as string;
+        entity.parentId = row.parent_id as string | null;
+        entity.status = row.status as CommentStatus;
+        entity.createdAt = row.created_at ? new Date(row.created_at as string) : new Date();
+        entity.updatedAt = row.updated_at ? new Date(row.updated_at as string) : new Date();
+        entity.deletedAt = row.deleted_at ? new Date(row.deleted_at as string) : null;
+        return entity;
+      });
+    } catch (error) {
+      throw new DomainError(
+        BLOG_ERROR.QUERY_FAILED,
+        '查询评论树失败',
+        {
+          articleId,
+          error: error instanceof Error ? error.message : '未知错误',
+        },
+        error,
+      );
+    }
+  }
+
+  /**
    * 分页查询待审核评论
    */
   async findPendingComments(

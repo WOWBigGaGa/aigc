@@ -6,6 +6,7 @@ import { TagRepository } from '@src/modules/blog/repositories/tag.repository';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
 import { ArticleQueryService } from '@src/modules/blog/queries/article.query.service';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
+import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';
 import { TRANSACTION_RUNNER } from '@src/usecases/common/ports/transaction-runner.contract';
 import { CreateArticleUsecase } from './create-article.usecase';
 import { UpdateArticleUsecase } from './update-article.usecase';
@@ -40,6 +41,7 @@ describe('Blog Usecases', () => {
     content: 'Test Content',
     coverImage: null,
     summary: 'Test Summary',
+    slug: null,
     status: ArticleStatus.DRAFT,
     categoryId: null,
     authorId: overrides.authorId || '3',
@@ -1165,6 +1167,7 @@ describe('Blog Usecases', () => {
           },
           { provide: CommentQueryService, useValue: { getCommentById: jest.fn() } },
           { provide: TRANSACTION_RUNNER, useValue: mockTransactionRunner },
+          { provide: BullMqProducerGateway, useValue: { enqueue: jest.fn() } },
         ],
       }).compile();
 

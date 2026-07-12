@@ -4,6 +4,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { CommentRepository } from '@src/modules/blog/repositories/comment.repository';
 import { CommentQueryService } from '@src/modules/blog/queries/comment.query.service';
+import { BullMqProducerGateway } from '@src/infrastructure/bullmq/producer.gateway';
+import { BULLMQ_QUEUES } from '@src/infrastructure/bullmq/bullmq.constants';
 import {
   TRANSACTION_RUNNER,
   type TransactionRunner,
@@ -26,6 +28,7 @@ export class CreateCommentUsecase {
   constructor(
     private readonly commentRepository: CommentRepository,
     private readonly commentQueryService: CommentQueryService,
+    private readonly producerGateway: BullMqProducerGateway,
     @Inject(TRANSACTION_RUNNER)
     private readonly transactionRunner: TransactionRunner,
   ) {}
@@ -105,6 +108,40 @@ export class CreateCommentUsecase {
     if (!created) {
       throw new DomainError(BLOG_ERROR.CREATE_FAILED, '创建评论失败');
     }
+
+    this.sendCommentNotification(input);
+
     return created;
+  }
+
+  private async sendCommentNotification(input: CreateCommentInput): Promise<void> {
+    try {
+      const emailContent = `
+新评论待审核
+
+文章ID: ${input.articleId}
+评论者: ${input.authorName}
+邮箱: ${input.authorEmail}
+内容: ${input.content}
+      `.trim();
+
+      await this.producerGateway.enqueue({
+        queueName: BULLMQ_QUEUES.EMAIL,
+        jobName: 'send',
+        payload: {
+          to: 'admin@example.com',
+          subject: '[博客] 新评论待审核',
+          text: emailContent,
+        },
+        auditMeta: {
+          bizType: 'comment',
+          bizKey: input.articleId,
+          reason: '新评论提交',
+          source: 'user_action',
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to send comment notification:', error);
+    }
   }
 }

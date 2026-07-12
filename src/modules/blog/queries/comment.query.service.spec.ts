@@ -40,6 +40,7 @@ describe('CommentQueryService', () => {
   beforeEach(async () => {
     commentRepository = {
       findApprovedByArticle: jest.fn(),
+      findApprovedByArticleWithChildren: jest.fn(),
       findPendingComments: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
@@ -58,10 +59,7 @@ describe('CommentQueryService', () => {
     const pagination: PaginationInput = { page: 1, limit: 10 };
 
     it('should return flat comments when no nesting', async () => {
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [mockCommentEntity],
-        total: 1,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([mockCommentEntity]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 
@@ -91,10 +89,10 @@ describe('CommentQueryService', () => {
     });
 
     it('should build nested comment tree (楼中楼)', async () => {
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [mockCommentEntity, mockReplyEntity],
-        total: 2,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([
+        mockCommentEntity,
+        mockReplyEntity,
+      ]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 
@@ -106,10 +104,7 @@ describe('CommentQueryService', () => {
     });
 
     it('should handle orphaned reply (parent not in current page)', async () => {
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [mockReplyEntity],
-        total: 1,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([mockReplyEntity]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 
@@ -118,7 +113,7 @@ describe('CommentQueryService', () => {
     });
 
     it('should throw DomainError when repository throws', async () => {
-      commentRepository.findApprovedByArticle.mockRejectedValue(
+      commentRepository.findApprovedByArticleWithChildren.mockRejectedValue(
         new DomainError(BLOG_ERROR.QUERY_FAILED, 'Query failed'),
       );
 
@@ -128,7 +123,9 @@ describe('CommentQueryService', () => {
     });
 
     it('should throw DomainError when unknown error occurs', async () => {
-      commentRepository.findApprovedByArticle.mockRejectedValue(new Error('Unknown error'));
+      commentRepository.findApprovedByArticleWithChildren.mockRejectedValue(
+        new Error('Unknown error'),
+      );
 
       await expect(service.getCommentsByArticle('article-1', pagination)).rejects.toThrow(
         DomainError,
@@ -150,10 +147,11 @@ describe('CommentQueryService', () => {
         deletedAt: null,
       } as CommentEntity;
 
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [mockCommentEntity, mockReplyEntity, grandchildComment],
-        total: 3,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([
+        mockCommentEntity,
+        mockReplyEntity,
+        grandchildComment,
+      ]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 
@@ -194,10 +192,12 @@ describe('CommentQueryService', () => {
         deletedAt: null,
       } as CommentEntity;
 
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [mockCommentEntity, mockReplyEntity, anotherParentComment, replyToAnotherParent],
-        total: 4,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([
+        mockCommentEntity,
+        mockReplyEntity,
+        anotherParentComment,
+        replyToAnotherParent,
+      ]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 
@@ -207,10 +207,7 @@ describe('CommentQueryService', () => {
     });
 
     it('should handle empty comments array', async () => {
-      commentRepository.findApprovedByArticle.mockResolvedValue({
-        items: [],
-        total: 0,
-      });
+      commentRepository.findApprovedByArticleWithChildren.mockResolvedValue([]);
 
       const result = await service.getCommentsByArticle('article-1', pagination);
 

@@ -43,7 +43,8 @@ const config: Config = {
   testPathIgnorePatterns: [
     '/node_modules/',
     '/dist/',
-    '/test/', // 排除 test 目录下的 E2E 测试
+    '/test/',
+    '/aigc-friendly-frontend/',
   ],
 
   // TypeScript 转换
